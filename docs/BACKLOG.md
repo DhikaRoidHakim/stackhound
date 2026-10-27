@@ -32,7 +32,7 @@ Format: `- [ ] T-xxx — judul` diikuti kriteria selesai. Rujukan `§` mengacu k
   Validasi URL, DNS, konektivitas, info TLS dasar → exit code 3 jika gagal.
 - [x] **T-104 — Baseline soft-404** (`core/baseline.py`, §3.2.2)
   Dua path acak, normalisasi body, `confirm(response, signature)` dengan rasio kemiripan < 0,9.
-- [ ] **T-105 — Fingerprint engine** (`core/fingerprint.py`, `data/signatures.json`, §3.2)
+- [x] **T-105 — Fingerprint engine** (`core/fingerprint.py`, `data/signatures.json`, §3.2)
   FP-01 s/d FP-05, skor confidence berbobot, ekstraksi versi + `version_source`.
 - [ ] **T-106 — Security headers & cookie & CORS** (`core/headers_tls.py`, §3.3)
   SH-01 (HSTS/CSP/XFO/XCTO/RP/PP), SH-02 (dengan pengecualian `XSRF-TOKEN`), SH-03, SH-05.

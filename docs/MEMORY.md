@@ -141,6 +141,30 @@ Detail berikut tidak ditentukan PRD dan ditetapkan di sini:
 - **Jika semua probe gagal**, `confirm()` hanya bergantung pada signature. Kondisi ini ditampilkan sebagai "baseline tidak tersedia".
 - **ID baru `FP-06`** (INFO "Target memakai soft-404"). PRD hanya menyebut temuan INFO tanpa ID.
 
+### D-026 — Fingerprint engine (T-105, 2026-10-27)
+- **Pasif.** `fingerprint(observations)` hanya memeriksa respons yang sudah diambil: halaman pre-flight, probe baseline (ditandai `not_found=True`), dan nanti probe plugin, misalnya respons PATCH LRV-02 untuk versi Laravel. Fingerprint tidak mengirim request sendiri.
+- **Pemetaan ID cek:**
+  - cookie = FP-01
+  - header = FP-02
+  - body = FP-03
+  - body dengan `on: not_found` = FP-04
+  - pattern dengan grup `(?P<version>)` + `version_source` = FP-05
+- **Confidence** adalah jumlah bobot sinyal yang berbeda (satu sinyal dihitung sekali walau cocok di banyak respons), dibatasi maksimal 1,0. Ambangnya: STRONG ≥ 0,8, LIKELY ≥ 0,4.
+- **`implies`** hanya satu tingkat dan hanya dari deteksi ≥ LIKELY (misalnya laravel → php). Teknologi yang di-imply mendapat confidence yang sama dengan sumbernya.
+- **Token distro hanya dibaca dari nilai header milik komponen itu sendiri.** Contohnya `(Debian)` di `Server` berlaku untuk Apache, tidak untuk PHP. Image PHP resmi dikompilasi dari source.
+- **Bukti cookie tidak pernah memuat nilai cookie**, hanya bagian yang cocok dengan pola (prefiks konstan `eyJpdiI6`). Semua bukti melewati `redact()`.
+- **Perbedaan dari bobot PRD §3.2.1:**
+  - Cookie Laravel memakai pola `*_session` / `*-session` + nilai `eyJpdiI6` (F-013), bukan nama literal.
+  - Sinyal baru:
+    - `laravel.cookie.encrypted` (0,3)
+    - halaman 404 Laravel (0,5)
+    - debug renderer Laravel ≥ 11 (1,0)
+    - 404 default Django (0,4)
+    - `PHPSESSID` (0,5)
+    - ASP.NET, Next.js, dan WordPress
+  - FastAPI tidak lagi dideteksi lewat `/openapi.json` dan `/docs`, karena keduanya butuh request tambahan; itu tugas plugin FastAPI (T-302). Penggantinya: 404 JSON `{"detail":"Not Found"}` (0,5) dan `Server: uvicorn` (0,3).
+- **`VersionSource.HTML_META`** ditambahkan untuk `<meta name="generator">`.
+
 ### D-023 — Konvensi commit (2026-10-27, permintaan pemilik produk)
 Gaya Conventional Commits (`feat:`, `update:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`), tanpa label fase. Judul dan body ditulis dalam bahasa Indonesia. Detail ada di CLAUDE.md.
 
