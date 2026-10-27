@@ -191,6 +191,22 @@ Detail berikut tidak ditentukan PRD dan ditetapkan di sini:
 - **SH-05:** versi (pola `\d+\.\d+`) di `Server`, `X-Powered-By`, `X-AspNet-Version`, `X-AspNetMvc-Version`, atau `X-Generator` → LOW. Header tanpa versi (misalnya `X-Powered-By: Express`) tidak dilaporkan.
 - **Target SPA** sekarang juga sengaja salah konfigurasi CORS (memantulkan Origin + kredensial) untuk menguji SH-03. Target clean wajib menghasilkan nol temuan.
 
+### D-028 — Audit TLS / SH-04 (T-107, 2026-10-27)
+- **ID turunan:** `SH-04.CERT` (HIGH), `SH-04.EXPIRY` (MEDIUM, < 30 hari), `SH-04.LEGACY` (MEDIUM, menerima TLS 1.0/1.1), `SH-04.HTTP` (LOW).
+- **`TargetSession.tls_handshake()`** membuka koneksi TLS, menyelesaikan handshake, lalu menutupnya tanpa mengirim request HTTP. Koneksi ini tetap melewati rate limiter dan semaphore session, dan dihitung di `request_count`. Karena koneksinya langsung, fungsi ini tidak dijalankan saat memakai proxy dan hasilnya `accepted=None`.
+- **Sertifikat:**
+  - Tanpa `--insecure`, pre-flight sudah memverifikasi, jadi detailnya diambil dari `response.tls` tanpa koneksi tambahan.
+  - Dengan `--insecure`, dilakukan satu handshake terverifikasi. Jika gagal, alasannya (`verify_message`, misalnya "self-signed certificate") masuk ke SH-04.CERT.
+- **TLS lama:**
+  - Dua handshake dengan `minimum_version = maximum_version = TLSv1 / TLSv1_1` dan `SECLEVEL=0`.
+  - Handshake berhasil berarti diterima. Koneksi direset atau alert dari server berarti ditolak.
+  - Jika OpenSSL lokal tidak mendukung (`NO_PROTOCOLS_AVAILABLE` atau context tidak bisa dibuat), hasilnya **tidak teruji** dan dicatat sebagai catatan, bukan dianggap lulus.
+- **HTTP → HTTPS:**
+  - Target `http://` yang tidak di-redirect: SH-04.HTTP langsung dari respons pre-flight, tanpa request tambahan.
+  - Target `https://` di port 443: satu GET ke `http://host/`. Lulus jika dijawab redirect 3xx ke `https://`.
+  - Cek ini dilewati jika pre-flight sudah melihat redirect http→https, atau jika HTTPS tidak di port 443. Port 80 yang tertutup hanya menjadi catatan.
+- **Port 80 dianggap bagian dari target yang sama** dengan `https://host:443`, walaupun kunci otorisasi menyertakan port.
+
 ### D-023 — Konvensi commit (2026-10-27, permintaan pemilik produk)
 Gaya Conventional Commits (`feat:`, `update:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`), tanpa label fase. Judul dan body ditulis dalam bahasa Indonesia. Detail ada di CLAUDE.md.
 
@@ -225,4 +241,5 @@ Banner ASCII dari pemilik produk disimpan apa adanya di `shound/data/banner.txt`
 - **F-019 — `OPENSSL_CONF` di mesin dev** menunjuk ke file PostgreSQL yang tidak ada, sehingga `openssl req` gagal. Test TLS lokal karena itu memakai config OpenSSL minimal miliknya sendiri dan menghapus variabel tersebut dari environment subprocess.
 - **F-020 — httpcore menyediakan extension `network_stream` untuk HTTP/1.1 maupun HTTP/2.** Dengan `get_extra_info("ssl_object")`, objek SSL koneksi bisa dibaca saat respons di-stream.
 - **F-021 — Dengan `verify_mode=CERT_NONE` (`--insecure`), `getpeercert()` mengembalikan `{}`.** Subject, issuer, dan tanggal kedaluwarsa tidak tersedia tanpa library parser X.509 tambahan.
+- **F-022 — Python 3.11 + OpenSSL 3.0.13 (Windows) masih bisa handshake TLS 1.0/1.1**, asalkan `set_ciphers("DEFAULT:@SECLEVEL=0")`. Server yang menolak biasanya memutus koneksi (`ConnectionResetError`), bukan mengirim alert. Python mengeluarkan `DeprecationWarning` untuk `TLSVersion.TLSv1`/`TLSv1_1`, yang di-suppress di `_handshake_context`.
 - **F-016 — `OPTIONS /` di Laravel membalas `Allow: GET,HEAD`** (tanpa spasi). Guard `probe_patch()` bekerja di Laravel 10 dan 12, dan PATCH mengembalikan 405 dengan halaman debug.

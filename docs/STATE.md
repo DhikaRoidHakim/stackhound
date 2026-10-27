@@ -3,7 +3,7 @@
 > Diperbarui di akhir setiap sesi kerja. Isinya adalah status saat ini saja; riwayat keputusan ada di `MEMORY.md`.
 
 **Terakhir diperbarui:** 2026-10-27
-**Fase aktif:** Fase 1 — MVP (T-101 s/d T-106 selesai). Fase 0 selesai.
+**Fase aktif:** Fase 1 — MVP (T-101 s/d T-107 selesai). Fase 0 selesai.
 **Versi PRD acuan:** 1.1.0 (`docs/StackHound_PRD_v1.1.docx`)
 **Versi package:** 0.1.0
 **Remote git:** `origin` → https://github.com/DhikaRoidHakim/stackhound.git (tracking `origin/main`)
@@ -39,11 +39,15 @@
   - Hasil di target Docker:
     - Laravel: 7 temuan (CSP, XFO, XCTO, RP, PP, versi Server dan PHP); cookie Laravel lolos.
     - SPA: SH-03.REFLECT HIGH dan SH-03.NULL MEDIUM.
-    - Clean: 0 temuan.
-- `runner.execute()` menjalankan pre-flight, baseline, fingerprint, lalu audit header/cookie/CORS untuk mode dengan target URL. Hasilnya ditampilkan sebagai tabel temuan, diikuti pesan "belum tersedia" untuk pemeriksaan lanjutan.
+    - Clean: 0 temuan header/cookie/CORS.
+- **T-107** audit TLS / SH-04 (`audit_tls` di `shound/core/headers_tls.py`, `TargetSession.tls_handshake`):
+  - Mencakup sertifikat tidak valid, sertifikat segera kedaluwarsa, penerimaan TLS 1.0/1.1, dan HTTP yang tidak diarahkan ke HTTPS.
+  - Diuji dengan dua server HTTPS lokal sungguhan (modern dan legacy) di `tests/integration/test_tls_local.py`.
+  - Semua target Docker berjalan di HTTP, jadi masing-masing mendapat SH-04.HTTP (LOW). Target clean sekarang memiliki tepat 1 temuan, yaitu itu.
+- `runner.execute()` menjalankan pre-flight, baseline, fingerprint, lalu audit header/cookie/CORS/TLS untuk mode dengan target URL. Hasilnya ditampilkan sebagai tabel temuan dan catatan TLS, diikuti pesan "belum tersedia" untuk tahap grading/laporan.
 - **Kualitas:**
-  - Unit: 311 lulus, 1 skip (khusus POSIX), coverage 94%.
-  - Integrasi: 48 lulus (`pytest -m targets`).
+  - Unit + integrasi lokal: 330 lulus, 1 skip (khusus POSIX), coverage 94%.
+  - Integrasi Docker: 52 lulus (`pytest -m targets`).
   - `ruff` dan `mypy --strict` bersih.
 
 ## Status git
@@ -62,9 +66,8 @@ Saat implementasi T-105 dan T-109, ikuti temuan ini (sudah terbukti di target), 
 
 ## Langkah berikutnya
 
-1. `T-107`: audit TLS (SH-04). `TlsInfo` sudah tersedia di `HttpResponse`; perlu ditambah cek TLS 1.0/1.1 dan redirect HTTP → HTTPS. Fungsinya ditaruh di `core/headers_tls.py`.
-2. `T-108` / `T-109`: kontrak plugin dan plugin Laravel (LRV-01 s/d LRV-06). Gunakan `baseline.confirm()` dan `redacted_evidence()`.
-3. `T-110` / `T-111`: grading, exit code `--fail-on`, serta reporter terminal + JSON. Setelah itu mode `recon` tidak perlu lagi berakhir "belum tersedia".
+1. `T-108` / `T-109`: kontrak plugin dan plugin Laravel (LRV-01 s/d LRV-06). Gunakan `baseline.confirm()`, `baseline.url_for()`, `redacted_evidence()`, dan `session.probe_patch()`; ikuti F-013 s/d F-015.
+2. `T-110` / `T-111`: grading, exit code `--fail-on`, serta reporter terminal + JSON. Setelah itu mode `recon` tidak perlu lagi berakhir "belum tersedia".
 
 ## Sedang dikerjakan
 

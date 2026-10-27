@@ -36,7 +36,7 @@ Format: `- [ ] T-xxx — judul` diikuti kriteria selesai. Rujukan `§` mengacu k
   FP-01 s/d FP-05, skor confidence berbobot, ekstraksi versi + `version_source`.
 - [x] **T-106 — Security headers & cookie & CORS** (`core/headers_tls.py`, §3.3)
   SH-01 (HSTS/CSP/XFO/XCTO/RP/PP), SH-02 (dengan pengecualian `XSRF-TOKEN`), SH-03, SH-05.
-- [ ] **T-107 — TLS audit** (SH-04)
+- [x] **T-107 — TLS audit** (SH-04)
   Validitas sertifikat, kedaluwarsa < 30 hari, TLS 1.0/1.1 diterima, redirect HTTP → HTTPS.
 - [ ] **T-108 — Kontrak plugin & registry** (`plugins/base.py`, `plugins/__init__.py`, §3.4.1)
   `BasePlugin`, `ScanContext`, `PluginResult`, loader berdasarkan ambang confidence 0,8 / 0,4.
