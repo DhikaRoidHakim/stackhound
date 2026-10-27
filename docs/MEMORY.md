@@ -61,6 +61,25 @@ Kode dan komentar dalam bahasa Inggris. Output CLI dan laporan dalam bahasa Indo
 
 Keduanya menggantikan `~/.shound/` dari v1.0.0.
 
+### D-013 — Versi package & header identitas (2026-10-27) — *usulan, menunggu konfirmasi*
+Versi package dimulai dari `0.1.0` (di `shound/__init__.py`, dibaca hatchling) dan menjadi `1.0.0` saat MVP dirilis. `User-Agent` dan `X-Security-Audit` memakai `__version__`, bukan angka "1.1" seperti contoh di PRD.
+**Alasan:** "1.1" di PRD adalah versi dokumen. Header harus menunjukkan versi tool yang benar-benar berjalan.
+
+### D-014 — Model Pydantic menolak field asing (2026-10-27)
+Semua model di `core/models.py` mewarisi `_StrictModel` (`extra="forbid"`). Selain itu, `cvss_score` dibatasi 0–10, `score` dibatasi 0–100, dan `fingerprint` bertipe `dict[str, Any]` (agar lolos mypy strict). Ini tambahan dari PRD §4, bukan perubahan makna.
+**Alasan:** typo nama field saat membangun model secara internal langsung gagal, tidak diam-diam hilang.
+
+### D-015 — Tooling (2026-10-27)
+- Build backend hatchling, dengan versi dinamis dari `shound/__init__.py`.
+- mypy strict untuk seluruh `shound/`, memakai plugin `pydantic.mypy`.
+- ruff dengan rule set `E,F,W,I,B,UP,SIM,RUF,ASYNC,PT`; RUF001–003 dimatikan karena teks berbahasa Indonesia; panjang baris 100.
+- pytest dengan `asyncio_mode=auto`; test `live` di-skip secara default (`-m 'not live'`).
+- `pytest-cov` ditambahkan ke dependency dev untuk mengukur target coverage 80% (PRD §7).
+
+### D-016 — Guard jaringan di test (2026-10-27)
+`tests/conftest.py` mem-patch `socket.socket.connect` sehingga koneksi selain loopback raise `RuntimeError`. Loopback tetap diizinkan karena asyncio di Windows memakai koneksi lokal untuk self-pipe.
+**Alasan:** menegakkan aturan "unit test tidak boleh menyentuh jaringan" secara otomatis, tanpa dependency tambahan.
+
 ## Fakta teknis
 
 - **F-001 — NVD `isVulnerable`.** Tanpa parameter ini, query `cpeName` juga mengembalikan CVE aplikasi lain yang hanya *berjalan di atas* komponen tersebut (misalnya ratusan aplikasi PHP). Hasil NVD juga harus di-paginate (`resultsPerPage` maksimal 2000, `startIndex`).

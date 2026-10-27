@@ -23,7 +23,7 @@ Jika kode dan PRD berbeda, jangan diam-diam memilih salah satu: catat di `docs/S
 
 - Mesin dev: Windows 11, shell PowerShell (Git Bash juga tersedia). Python 3.11 terpasang; target dukungan Python 3.10–3.13.
 - Virtualenv di `.venv/`. Semua path di kode memakai `pathlib` / `platformdirs`, tidak ada path hard-coded gaya POSIX.
-- Folder ini belum menjadi repo git.
+- Repo git, branch utama `main`. Line ending LF (`.gitattributes`).
 
 ## Perintah (berlaku setelah Fase 0 / T-001 selesai)
 
@@ -32,7 +32,8 @@ python -m venv .venv
 .venv/Scripts/python -m pip install -e ".[dev]"
 .venv/Scripts/python -m pytest
 .venv/Scripts/python -m ruff check .
-.venv/Scripts/python -m mypy shound
+.venv/Scripts/python -m ruff format .
+.venv/Scripts/python -m mypy
 .venv/Scripts/python -m shound --help
 ```
 

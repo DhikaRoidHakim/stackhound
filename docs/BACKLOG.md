@@ -4,12 +4,12 @@ Format: `- [ ] T-xxx — judul` diikuti kriteria selesai. Rujukan `§` mengacu k
 
 ## Fase 0 — Fondasi (Hari 1–2)
 
-- [ ] **T-000 — Inisialisasi repo**
+- [x] **T-000 — Inisialisasi repo**
   `git init`, `.gitignore` (Python, `.venv/`, `*.html`/`*.json` laporan di root), `README.md` singkat, commit awal.
-- [ ] **T-001 — Kerangka package**
+- [x] **T-001 — Kerangka package**
   `pyproject.toml` (hatchling/setuptools, Python ≥ 3.10, entry point `shound = shound.cli:app`, extras `dev`). Struktur folder sesuai PRD §5. Konfigurasi ruff, mypy (strict untuk `shound/core`), dan pytest (`asyncio_mode = auto`, marker `live`).
   Selesai jika `pip install -e ".[dev]"`, `shound --help`, `pytest`, `ruff`, dan `mypy` semuanya berjalan.
-- [ ] **T-002 — Model data** (`core/models.py`, §4)
+- [x] **T-002 — Model data** (`core/models.py`, §4)
   Membuat `Severity`, `Confidence`, `VersionSource`, `Evidence`, `Finding`, `UnifiedVulnerability`, dan `ScanReport`. Unit test untuk serialisasi JSON dan nilai default.
 - [ ] **T-003 — Konfigurasi** (`config.py`, §3.8.1)
   Prioritas CLI > env > `config.json` > default; lokasi via `platformdirs`; API key termask; file `0600` di POSIX.
