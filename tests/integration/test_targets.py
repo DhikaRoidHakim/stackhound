@@ -23,6 +23,8 @@ from shound.core.models import Finding, Severity, VersionSource
 from shound.core.preflight import run_preflight
 from shound.core.redaction import redact
 from shound.core.session import TargetSession
+from shound.plugins.base import PluginResult, ScanContext
+from shound.plugins.laravel import LaravelPlugin
 
 pytestmark = pytest.mark.targets
 
@@ -373,3 +375,46 @@ async def test_tls_audit_plain_http_targets(session: TargetSession, base: str) -
     audit = await audit_tls(session, result)
     assert [f.id for f in audit.findings] == ["SH-04.HTTP"]
     assert session.request_count == sent  # decided from the pre-flight response alone
+
+
+# ---------------------------------------------------------------- Laravel plugin
+async def run_laravel_plugin(session: TargetSession, base: str) -> PluginResult:
+    result = await run_preflight(f"{base}/", session)
+    baseline = await Baseline.capture(session, result.final_url)
+    observed = [
+        Observation(result.response),
+        *(Observation(s.response, not_found=True) for s in baseline.samples),
+    ]
+    ctx = ScanContext(
+        session=session,
+        baseline=baseline,
+        target=result.final_url,
+        fingerprint=fingerprint(observed),
+        responses=(result.response, *(s.response for s in baseline.samples)),
+    )
+    return await LaravelPlugin().run(ctx)
+
+
+@pytest.mark.parametrize("base", LARAVEL_TARGETS)
+async def test_laravel_plugin_finds_every_exposure(session: TargetSession, base: str) -> None:
+    require(base)
+    result = await run_laravel_plugin(session, base)
+    found = {f.id: f for f in result.findings}
+    assert set(found) == {"LRV-01", "LRV-02", "LRV-03", "LRV-04", "LRV-05", "LRV-06"}
+    assert found["LRV-01"].severity is Severity.CRITICAL
+    assert found["LRV-06"].severity is Severity.CRITICAL
+    assert [lock.url for lock in result.exposed_lockfiles] == [f"{base}/composer.lock"]
+    sources = {v.source for v in result.versions if v.component == "laravel"}
+    assert sources == {VersionSource.ERROR_PAGE, VersionSource.EXPOSED_LOCKFILE}
+    dumped = json.dumps([f.model_dump(mode="json") for f in result.findings])
+    assert_no_fake_secrets(dumped)
+    assert "fixture@example.test" not in dumped  # git user.email is not evidence
+
+
+@pytest.mark.parametrize("base", [SPA, CLEAN])
+async def test_laravel_plugin_forced_on_non_laravel_has_no_findings(
+    session: TargetSession, base: str
+) -> None:
+    require(base)
+    result = await run_laravel_plugin(session, base)
+    assert result.findings == []

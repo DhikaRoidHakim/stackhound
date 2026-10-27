@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "env_files": [".env", ".env.backup", ".env.production", ".env.example", "public/.env"],
+  "env_line": "(?m)^(?:APP_KEY|APP_ENV|DB_HOST|DB_PASSWORD|MAIL_\\w+|AWS_\\w+)=",
+  "env_min_lines": 2,
+  "log_files": ["storage/logs/laravel.log"],
+  "log_line": "(?m)^\\[\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:[+-]\\d{2}:?\\d{2})?\\] \\w+\\.[A-Z]+:",
+  "debug_pages": [
+    {"name": "Ignition", "marker": "spatie/laravel-ignition|facade/ignition|window\\.ignite"},
+    {"name": "Laravel exception renderer", "marker": "PHP \\d+\\.\\d+\\.\\d+(?:\\\\n|\\n)Laravel \\d+\\.\\d+\\.\\d+"},
+    {"name": "Whoops", "marker": "Whoops! There was an error|class=\"Whoops container\""}
+  ],
+  "panels": [
+    {"name": "Telescope", "path": "telescope", "marker": "<title>Telescope|window\\.Telescope\\s*=", "verified": true},
+    {"name": "Horizon", "path": "horizon", "marker": "<title>Horizon|window\\.Horizon\\s*=", "verified": false},
+    {"name": "Pulse", "path": "pulse", "marker": "<title>Laravel Pulse", "verified": false},
+    {"name": "Log Viewer", "path": "log-viewer", "marker": "/vendor/log-viewer/|<title>Log Viewer", "verified": false}
+  ],
+  "composer_files": ["composer.json", "composer.lock"],
+  "git_head": "^(?:ref: refs/heads/\\S+|[0-9a-f]{40})\\s*$",
+  "git_config": "(?m)^\\s*\\[core\\]"
+}

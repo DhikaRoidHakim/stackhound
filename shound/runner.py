@@ -7,6 +7,7 @@ that already calls ``shound`` cannot pass by accident).
 """
 
 import asyncio
+from urllib.parse import urlsplit
 
 from rich.console import Console
 from rich.markup import escape
@@ -16,17 +17,19 @@ from shound.config import Settings
 from shound.core.baseline import Baseline
 from shound.core.fingerprint import FingerprintResult, Observation, fingerprint
 from shound.core.headers_tls import audit_cookies, audit_cors, audit_security_headers, audit_tls
-from shound.core.models import Finding, Severity, severity_rank
+from shound.core.models import Evidence, Finding, Severity, severity_rank
 from shound.core.preflight import PreflightResult, run_preflight
 from shound.core.redaction import redact
 from shound.core.session import TargetSession
 from shound.errors import PreflightError
 from shound.exitcodes import ExitCode
 from shound.options import Mode, ScanRequest
+from shound.plugins import select_plugins
+from shound.plugins.base import ScanContext
 
 PENDING_TASKS: dict[Mode, str] = {
     "recon": "T-110, T-111",
-    "audit": "T-108, T-109",
+    "audit": "T-110, T-111",
     "cve": "T-209",
     "deps": "T-207",
     "scan": "T-309",
@@ -163,6 +166,18 @@ _SEVERITY_STYLE = {
 }
 
 
+EVIDENCE_PREVIEW = 90
+
+
+def _evidence_line(evidence: Evidence) -> str:
+    """Short terminal preview; the full evidence goes to the report files (T-111)."""
+    detail = evidence.snippet or evidence.note
+    path = urlsplit(evidence.url).path or "/"
+    text = f"{path}: {detail}" if detail else evidence.url
+    text = " ".join(text.split())
+    return text if len(text) <= EVIDENCE_PREVIEW else text[: EVIDENCE_PREVIEW - 3] + "..."
+
+
 def findings_table(findings: list[Finding]) -> Table:
     table = Table(title=f"Temuan ({len(findings)})", title_justify="left")
     table.add_column("ID", style="bold", no_wrap=True)
@@ -171,7 +186,7 @@ def findings_table(findings: list[Finding]) -> Table:
     table.add_column("Bukti")
     for finding in sorted(findings, key=lambda f: (severity_rank(f.severity), f.id)):
         style = _SEVERITY_STYLE[finding.severity]
-        evidence = "\n".join(e.snippet or e.url for e in finding.evidence[:3])
+        evidence = "\n".join(_evidence_line(e) for e in finding.evidence[:3])
         if len(finding.evidence) > 3:
             evidence += f"\n(+{len(finding.evidence) - 3} lainnya)"
         table.add_row(
@@ -205,19 +220,44 @@ async def probe_target(
         if detected.versions:
             console.print(versions_table(detected))
         responses = [result.response, *(sample.response for sample in baseline.samples)]
-        findings = [
-            *audit_security_headers(result.response),
-            *audit_cookies(responses),
-            *await audit_cors(session, result.final_url),
-        ]
-        tls_audit = await audit_tls(session, result)
-        findings.extend(tls_audit.findings)
+        findings: list[Finding] = []
+        notes: list[str] = []
+        if request.mode in {"recon", "scan"}:
+            findings += audit_security_headers(result.response)
+            findings += audit_cookies(responses)
+            findings += await audit_cors(session, result.final_url)
+            tls_audit = await audit_tls(session, result)
+            findings += tls_audit.findings
+            notes += [f"TLS: {note}" for note in tls_audit.notes]
+        if request.mode in {"audit", "scan"}:
+            selection = select_plugins(detected, request.framework)
+            notes += selection.notes
+            context = ScanContext(
+                session=session,
+                baseline=baseline,
+                target=result.final_url,
+                fingerprint=detected,
+                method_probe=request.method_probe,
+                responses=tuple(responses),
+            )
+            for plugin_class in selection.plugins:
+                plugin_result = await plugin_class().run(context)
+                findings += plugin_result.findings
+                notes += [f"{plugin_class.name}: {note}" for note in plugin_result.notes]
+                if plugin_result.versions:
+                    console.print(
+                        versions_table(FingerprintResult(versions=plugin_result.versions))
+                    )
+                for lockfile in plugin_result.exposed_lockfiles:
+                    notes.append(
+                        f"{lockfile.url} terekspos; audit CVE isinya menyusul (BACKLOG T-208)."
+                    )
         soft_404 = baseline.soft_404_finding()
         if soft_404 is not None:
             findings.append(soft_404)
         console.print(findings_table(findings))
-        for note in tls_audit.notes:
-            console.print(f"[dim]Catatan TLS: {escape(note)}[/dim]")
+        for note in notes:
+            console.print(f"[dim]Catatan: {escape(note)}[/dim]")
         console.print(f"[dim]Request terkirim ke target: {session.request_count}[/dim]")
 
 
