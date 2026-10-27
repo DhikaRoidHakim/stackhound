@@ -27,6 +27,21 @@ class Severity(str, Enum):
     UNKNOWN = "UNKNOWN"
 
 
+SEVERITY_ORDER = [
+    Severity.CRITICAL,
+    Severity.HIGH,
+    Severity.MEDIUM,
+    Severity.LOW,
+    Severity.INFO,
+    Severity.UNKNOWN,
+]
+
+
+def severity_rank(severity: Severity) -> int:
+    """0 for CRITICAL ... 5 for UNKNOWN; use as a sort key."""
+    return SEVERITY_ORDER.index(severity)
+
+
 class Confidence(str, Enum):
     HIGH = "HIGH"  # verified by content signature / lock file
     MEDIUM = "MEDIUM"  # strong but indirect signal

@@ -18,7 +18,8 @@ import pytest
 from shound.config import Settings
 from shound.core.baseline import Baseline, Signature
 from shound.core.fingerprint import LIKELY, Observation, fingerprint
-from shound.core.models import VersionSource
+from shound.core.headers_tls import audit_cookies, audit_cors, audit_security_headers
+from shound.core.models import Finding, Severity, VersionSource
 from shound.core.preflight import run_preflight
 from shound.core.redaction import redact
 from shound.core.session import TargetSession
@@ -321,3 +322,44 @@ async def test_fingerprint_clean_target(session: TargetSession) -> None:
     assert result.frameworks() == []
     assert result.versions == []  # server_tokens off
     assert result.confidence("nginx") == 0.9
+
+
+# ---------------------------------------------------------------- SH-01/02/03/05
+async def audit_target(session: TargetSession, base: str) -> dict[str, Finding]:
+    result = await run_preflight(f"{base}/", session)
+    findings = [
+        *audit_security_headers(result.response),
+        *audit_cookies([result.response]),
+        *await audit_cors(session, result.final_url),
+    ]
+    return {f.id: f for f in findings}
+
+
+@pytest.mark.parametrize("base", LARAVEL_TARGETS)
+async def test_header_audit_laravel(session: TargetSession, base: str) -> None:
+    require(base)
+    found = await audit_target(session, base)
+    assert set(found) == {
+        "SH-01.CSP",
+        "SH-01.XFO",
+        "SH-01.XCTO",
+        "SH-01.RP",
+        "SH-01.PP",
+        "SH-05.SERVER",
+        "SH-05.POWERED-BY",
+    }
+    # Laravel's own cookie defaults pass SH-02 over plain HTTP (XSRF-TOKEN is exempt
+    # from HttpOnly on purpose), and Laravel sends no CORS headers for "/".
+
+
+async def test_header_audit_spa_cors(session: TargetSession) -> None:
+    require(SPA)
+    found = await audit_target(session, SPA)
+    assert found["SH-03.REFLECT"].severity is Severity.HIGH
+    assert found["SH-03.NULL"].severity is Severity.MEDIUM
+    assert "SH-05.SERVER" in found
+
+
+async def test_header_audit_clean_target_has_no_findings(session: TargetSession) -> None:
+    require(CLEAN)
+    assert await audit_target(session, CLEAN) == {}

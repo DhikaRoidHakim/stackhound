@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "_comment": "Classifies cookies for SH-02. Sensitive cookies must be Secure (on HTTPS) and SameSite; session cookies must also be HttpOnly. CSRF cookies are read by JavaScript on purpose, so HttpOnly is not required for them (MEMORY F-005).",
+  "session_patterns": [
+    "(?i)sess",
+    "(?i)^sid$",
+    "(?i)^connect\\.sid$",
+    "(?i)^remember_",
+    "(?i)auth",
+    "(?i)jwt",
+    "(?i)token"
+  ],
+  "csrf_names": [
+    "XSRF-TOKEN",
+    "csrftoken",
+    "csrf_cookie_name",
+    "_csrf",
+    "csrf-token",
+    "CSRF-TOKEN",
+    "__RequestVerificationToken"
+  ]
+}

@@ -15,6 +15,8 @@ from rich.table import Table
 from shound.config import Settings
 from shound.core.baseline import Baseline
 from shound.core.fingerprint import FingerprintResult, Observation, fingerprint
+from shound.core.headers_tls import audit_cookies, audit_cors, audit_security_headers
+from shound.core.models import Finding, Severity, severity_rank
 from shound.core.preflight import PreflightResult, run_preflight
 from shound.core.redaction import redact
 from shound.core.session import TargetSession
@@ -23,7 +25,7 @@ from shound.exitcodes import ExitCode
 from shound.options import Mode, ScanRequest
 
 PENDING_TASKS: dict[Mode, str] = {
-    "recon": "T-106, T-107",
+    "recon": "T-107, T-110, T-111",
     "audit": "T-108, T-109",
     "cve": "T-209",
     "deps": "T-207",
@@ -151,6 +153,38 @@ def versions_table(result: FingerprintResult) -> Table:
     return table
 
 
+_SEVERITY_STYLE = {
+    Severity.CRITICAL: "bold white on red",
+    Severity.HIGH: "bold red",
+    Severity.MEDIUM: "yellow",
+    Severity.LOW: "cyan",
+    Severity.INFO: "dim",
+    Severity.UNKNOWN: "dim",
+}
+
+
+def findings_table(findings: list[Finding]) -> Table:
+    table = Table(title=f"Temuan ({len(findings)})", title_justify="left")
+    table.add_column("ID", style="bold", no_wrap=True)
+    table.add_column("Severity", no_wrap=True)
+    table.add_column("Judul")
+    table.add_column("Bukti")
+    for finding in sorted(findings, key=lambda f: (severity_rank(f.severity), f.id)):
+        style = _SEVERITY_STYLE[finding.severity]
+        evidence = "\n".join(e.snippet or e.url for e in finding.evidence[:3])
+        if len(finding.evidence) > 3:
+            evidence += f"\n(+{len(finding.evidence) - 3} lainnya)"
+        table.add_row(
+            finding.id,
+            f"[{style}]{finding.severity.value}[/{style}]",
+            escape(finding.title),
+            escape(evidence),
+        )
+    if not findings:
+        table.add_row("-", "-", "Tidak ada temuan.", "-")
+    return table
+
+
 async def probe_target(
     request: ScanRequest, target: str, settings: Settings, console: Console
 ) -> None:
@@ -170,6 +204,16 @@ async def probe_target(
         console.print(fingerprint_table(detected))
         if detected.versions:
             console.print(versions_table(detected))
+        responses = [result.response, *(sample.response for sample in baseline.samples)]
+        findings = [
+            *audit_security_headers(result.response),
+            *audit_cookies(responses),
+            *await audit_cors(session, result.final_url),
+        ]
+        soft_404 = baseline.soft_404_finding()
+        if soft_404 is not None:
+            findings.append(soft_404)
+        console.print(findings_table(findings))
         console.print(f"[dim]Request terkirim ke target: {session.request_count}[/dim]")
 
 

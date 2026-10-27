@@ -254,7 +254,11 @@ class TestRealRunner:
         assert "Pre-flight" in out
         assert "Soft-404 tidak" in out
         assert "belum tersedia" in out
-        assert home.call_count == 1
+        assert "Temuan" in out
+        assert "SH-01.CSP" in out
+        # Landing page: pre-flight GET, then the two SH-03 CORS probes.
+        origins = [call.request.headers.get("origin") for call in home.calls]
+        assert origins == [None, "https://shound-origin-check.invalid", "null"]
         assert probes.call_count == 2
 
     def test_unreachable_target_exits_3(self) -> None:

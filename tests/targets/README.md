@@ -6,8 +6,8 @@
 |---|---|---|
 | `laravel12-debug` | http://127.0.0.1:8081 | Laravel 12, `APP_DEBUG=true`, `APP_ENV=local`, Telescope terbuka. Halaman error memakai renderer bawaan Laravel ≥ 11. |
 | `laravel10-ignition` | http://127.0.0.1:8082 | Sama seperti di atas, tapi Laravel 10 dengan halaman error Ignition. |
-| `spa-catchall` | http://127.0.0.1:8083 | Semua path mengembalikan `index.html` dengan status 200 (soft-404). Kontrol negatif untuk false positive. |
-| `clean` | http://127.0.0.1:8084 | Situs statis dengan header keamanan lengkap; dotfile dan path tak dikenal mengembalikan 404. |
+| `spa-catchall` | http://127.0.0.1:8083 | Semua path mengembalikan `index.html` dengan status 200 (soft-404); kontrol negatif untuk false positive cek path. Selain itu sengaja memantulkan `Origin` apa pun (termasuk `null`) bersama `Allow-Credentials: true` untuk menguji SH-03. |
+| `clean` | http://127.0.0.1:8084 | Situs statis dengan header keamanan lengkap; dotfile dan path tak dikenal mengembalikan 404. Audit header/cookie/CORS harus menghasilkan **nol temuan**. |
 
 ## Miskonfigurasi pada target Laravel
 
