@@ -80,6 +80,20 @@ Melanggar aturan di bawah dianggap bug, walaupun test lulus.
 - Pola deteksi (cookie, header, path, marker) disimpan di `shound/data/*.json`, tidak di-hard-code di logika.
 - Dependency baru harus dicatat alasannya di `docs/MEMORY.md`.
 
+## Konvensi commit
+
+Gunakan gaya Conventional Commits, tanpa label fase ("Phase 0/1"). **Judul dan body commit ditulis dalam bahasa Indonesia**; hanya prefiks tipe yang tetap dalam bahasa Inggris.
+
+- `feat:` fitur baru
+- `update:` penyempurnaan atau perubahan pada fitur yang sudah ada
+- `fix:` perbaikan bug
+- `docs:` dokumentasi
+- `test:` test saja
+- `refactor:` perubahan struktur tanpa perubahan perilaku
+- `chore:` tooling, dependency, atau konfigurasi
+
+Scope opsional. Contoh: `feat(cli): tambah subcommand scan dan opsi global`, `update: perbarui status di STATE.md`. ID task boleh ditaruh di body (misalnya "Refs: T-101").
+
 ## Alur kerja per sesi
 
 1. Baca `docs/STATE.md`, lalu ambil task berikutnya dari `docs/BACKLOG.md`.

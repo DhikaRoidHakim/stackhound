@@ -18,7 +18,7 @@
 > Memindai sistem tanpa izin dapat melanggar hukum (misalnya UU ITE).
 
 > [!NOTE]
-> **Status: pre-alpha (v0.1.0).** Fondasi sudah selesai (Fase 0). Fitur audit sedang dibangun; lihat [Roadmap](#roadmap). Perintah di bagian [Rencana pemakaian](#rencana-pemakaian) belum tersedia.
+> **Status: pre-alpha (v0.1.0).** Fondasi sudah selesai. CLI dan menu interaktif sudah bisa dipakai untuk validasi input, otorisasi, dan `shound config`. Mode audit (`recon`, `audit`, `cve`, `deps`, `scan`) masih dibangun dan untuk sementara mengembalikan pesan "belum tersedia" (exit code 2). Lihat [Roadmap](#roadmap).
 
 ## Kenapa StackHound?
 
@@ -48,7 +48,8 @@ Ada dua mode:
 
 ## Rencana pemakaian
 
-> Belum tersedia; spesifikasi lengkap ada di PRD (§2.2).
+> Perintah dan opsinya sudah terdaftar dan divalidasi, tapi mode audit belum menjalankan pemeriksaan. Spesifikasi lengkap ada di PRD (§2.2).
+> Menu interaktif (`shound` tanpa argumen) membutuhkan console terminal seperti PowerShell, cmd, atau Windows Terminal. Di Git Bash gunakan `winpty shound`.
 
 ```bash
 shound                                   # menu interaktif

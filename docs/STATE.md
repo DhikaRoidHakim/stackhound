@@ -3,27 +3,33 @@
 > Diperbarui di akhir setiap sesi kerja. Isinya adalah status saat ini saja; riwayat keputusan ada di `MEMORY.md`.
 
 **Terakhir diperbarui:** 2026-10-27
-**Fase aktif:** Fase 0 — Fondasi **selesai** (T-000 s/d T-006). Berikutnya Fase 1.
+**Fase aktif:** Fase 1 — MVP (T-101, T-102 selesai). Fase 0 selesai.
 **Versi PRD acuan:** 1.1.0 (`docs/StackHound_PRD_v1.1.docx`)
 **Versi package:** 0.1.0
-**Remote git:** `origin` → https://github.com/DhikaRoidHakim/stackhound.git (belum pernah di-push)
+**Remote git:** `origin` → https://github.com/DhikaRoidHakim/stackhound.git (tracking `origin/main`)
 
 ## Sudah selesai
 
-- **T-000 – T-005** (sudah di-commit): repo, package, models, config, `TargetSession`, redaksi.
-- **T-006** target Docker di `tests/targets/`:
-  - `laravel12-debug` (port 8081) dan `laravel10-ignition` (port 8082).
-  - `spa-catchall` (port 8083) dan `clean` (port 8084).
-  - Smoke test di `tests/integration/test_targets.py`, dijalankan dengan `pytest -m targets`.
-- **Banner CLI** dari pemilik produk disimpan di `shound/data/banner.txt` untuk T-102 (D-021).
+- **Fase 0 (T-000 – T-006):** repo, package, models, config, `TargetSession`, redaksi, target Docker uji.
+- **T-101** CLI Typer:
+  - Subcommand `recon`, `audit`, `cve`, `deps`, `scan`, `config show|set|unset`, dan `cache stats|clear`.
+  - Opsi global PRD §2.2 dipasang per subcommand.
+  - Validasi input ada di `shound/options.py`; gerbang izin di `shound/authorization.py`.
+  - Exit code: 2 untuk usage error atau tanpa `--authorized`; 3 jika lock file tidak ditemukan.
+  - Mode yang belum diimplementasi lewat `shound/runner.py`: mencetak ringkasan request lalu keluar dengan exit code 2.
+  - `shound config` sudah berfungsi penuh.
+- **T-102** menu interaktif (`shound/menu.py`, `shound/prompts.py`, `shound/ui.py`):
+  - Banner dari `data/banner.txt` dengan versi berjalan.
+  - Menu 0–7 dalam bahasa Indonesia, konfirmasi izin sekali per target, dan submenu Pengaturan.
+  - Diverifikasi secara visual di console Windows sungguhan.
 - **Kualitas:**
-  - Unit: 93 lulus, 1 skip (khusus POSIX).
-  - Integrasi: 30 lulus terhadap target Docker.
+  - Unit: 182 lulus, 1 skip (khusus POSIX).
+  - Integrasi: 30 lulus (`pytest -m targets`).
   - `ruff` dan `mypy --strict` bersih.
 
-## Belum di-commit
+## Status git
 
-Tidak ada. Semua pekerjaan Fase 0 sudah di-commit di `main` (commit terakhir `59a8f58`), tapi belum di-push ke `origin`.
+Semua pekerjaan sudah di-commit. Cek `git status -sb` untuk melihat apakah `main` sudah di-push (bagian ini sengaja tidak mencatat hash commit agar tidak basi).
 
 ## Temuan dari target nyata yang membuat PRD perlu dikoreksi
 
@@ -37,8 +43,10 @@ Saat implementasi T-105 dan T-109, ikuti temuan ini (sudah terbukti di target), 
 
 ## Langkah berikutnya
 
-1. Fase 1 dimulai dari `T-101` (CLI Typer & opsi global), lalu `T-102` (menu interaktif + banner).
-2. Container target masih berjalan. Matikan dengan `docker compose -f tests/targets/docker-compose.yml down` jika tidak dipakai.
+1. `T-103`: pre-flight check (DNS, konektivitas, info TLS; exit code 3 jika gagal).
+2. `T-104`: baseline soft-404.
+3. `T-105`: fingerprint engine.
+4. Untuk menyambungkan mode `recon`, ganti placeholder di `runner.execute()` dengan pipeline sungguhan.
 
 ## Sedang dikerjakan
 
@@ -47,6 +55,10 @@ Tidak ada.
 ## Blocker
 
 Tidak ada.
+
+## Catatan lingkungan
+
+Menu interaktif tidak bisa dijalankan di Git Bash/mintty biasa (gunakan `winpty shound`) dan juga tidak dari tool Bash milik Claude. Untuk cek manual, gunakan PowerShell atau Windows Terminal.
 
 ## Pertanyaan terbuka (perlu jawaban pemilik produk)
 

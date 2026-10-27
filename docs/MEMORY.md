@@ -112,6 +112,19 @@ Detail berikut tidak ditentukan PRD dan ditetapkan di sini:
 - Secret palsu ditanam di `configure.sh`.
 - Test bertanda `targets` dikecualikan dari `pytest` biasa (`addopts`) dan otomatis di-skip kalau container belum jalan.
 
+### D-022 — Arsitektur CLI & menu (T-101/T-102, 2026-10-27)
+- **Alur bersama:** `options.py` memvalidasi input menjadi `ScanRequest`; `authorization.py` (gerbang izin); `runner.execute()` menjalankan request. `cli.py` dan `menu.py` hanya mengumpulkan input, sehingga hasil dari menu dan dari CLI identik.
+- **Opsi "global" dipasang per subcommand**, bukan di root, supaya bisa ditulis setelah subcommand. Root hanya punya `--version` (versi tool). `--version` di subcommand bermakna komponen: `KOMPONEN=VERSI`, atau versi saja jika memakai `cve --component`.
+- **Mode yang belum diimplementasi** mencetak ringkasan request lalu keluar dengan **exit code 2**, supaya job CI yang sudah memanggil `shound` tidak lulus secara keliru.
+- **URL target:** wajib http/https; kredensial di URL (`user:pass@`) ditolak; fragment dibuang; host dijadikan huruf kecil.
+- **Kunci otorisasi:** `scheme://host:port`. Port berbeda dianggap target berbeda.
+- **`deps`:** menerima file atau folder proyek. File tidak ditemukan → exit code 3.
+- **`--no-cache` + `--refresh`** dipakai bersamaan → exit code 2.
+- **Menu memakai protocol `Prompts`** (`QuestionaryPrompts` untuk produksi, `ScriptedPrompts` di test). Jawaban `None` berarti batal: kembali ke menu, atau keluar jika terjadi di menu utama.
+
+### D-023 — Konvensi commit (2026-10-27, permintaan pemilik produk)
+Gaya Conventional Commits (`feat:`, `update:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`), tanpa label fase. Judul dan body ditulis dalam bahasa Indonesia. Detail ada di CLAUDE.md.
+
 ### D-021 — Banner CLI (2026-10-27)
 Banner ASCII dari pemilik produk disimpan apa adanya di `shound/data/banner.txt`. Satu-satunya perubahan: `v1.0.0` diganti placeholder `v{version}`, yang diisi `__version__` (D-013). Dipakai di T-102.
 
@@ -138,4 +151,6 @@ Banner ASCII dari pemilik produk disimpan apa adanya di `shound/data/banner.txt`
 - **F-015 — Halaman debug Laravel ≥ 11 bukan Ignition**, melainkan renderer bawaan Laravel. Markernya `MethodNotAllowedHttpException`, `## Stack Trace`, dan `Copy as Markdown`. Versi bocor dalam blok markdown yang di-escape JSON (`\nPHP 8.3.36\nLaravel 12.70.1`); karena diawali `\n`, regex tidak boleh memakai `\b`.
   Laravel 10 (Ignition) membocorkan `"laravel_version":"10.50.3"` dan `"php_version":"…"`, dengan marker `spatie/laravel-ignition` dan `window.ignite`.
   **PRD LRV-02 baru mencantumkan marker Ignition/Whoops.**
+- **F-017 — `sys.stdin.isatty()` tidak bisa dipercaya di Windows.** Hasilnya `True` untuk device `NUL` dan untuk mintty (Git Bash), padahal prompt_toolkit crash di keduanya (`NoConsoleScreenBufferError`). `prompts.is_interactive_terminal()` karena itu juga memeriksa `GetConsoleMode` pada handle stdin.
+- **F-018 — questionary `Choice(value=None)` mengembalikan judulnya, bukan `None`.** Untuk pilihan "Kembali", gunakan nilai eksplisit (misalnya `"back"`) lalu petakan ke `None`.
 - **F-016 — `OPTIONS /` di Laravel membalas `Allow: GET,HEAD`** (tanpa spasi). Guard `probe_patch()` bekerja di Laravel 10 dan 12, dan PATCH mengembalikan 405 dengan halaman debug.

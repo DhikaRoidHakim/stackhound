@@ -23,9 +23,9 @@ Format: `- [ ] T-xxx — judul` diikuti kriteria selesai. Rujukan `§` mengacu k
 
 ## Fase 1 — MVP (Minggu 1–2)
 
-- [ ] **T-101 — CLI Typer & opsi global** (§2.2)
+- [x] **T-101 — CLI Typer & opsi global** (§2.2)
   Semua subcommand terdaftar (yang belum diimplementasi menampilkan pesan "belum tersedia"). Mode non-interaktif otomatis jika stdin bukan TTY. `--authorized` wajib untuk target URL (exit code 2).
-- [ ] **T-102 — Menu interaktif** (§2.1)
+- [x] **T-102 — Menu interaktif** (§2.1)
   Banner, disclaimer, menu 0–7, konfirmasi otorisasi per target.
   **Banner wajib persis seperti `shound/data/banner.txt`** (permintaan pemilik produk). Placeholder `{version}` diisi `__version__` (D-013); jangan di-hard-code `v1.0.0`. Banner juga ditampilkan di awal `shound` tanpa argumen.
 - [ ] **T-103 — Pre-flight check** (§2.3)
