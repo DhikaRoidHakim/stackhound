@@ -207,6 +207,34 @@ Detail berikut tidak ditentukan PRD dan ditetapkan di sini:
   - Cek ini dilewati jika pre-flight sudah melihat redirect http→https, atau jika HTTPS tidak di port 443. Port 80 yang tertutup hanya menjadi catatan.
 - **Port 80 dianggap bagian dari target yang sama** dengan `https://host:443`, walaupun kunci otorisasi menyertakan port.
 
+### D-029 — Kontrak plugin & loader (T-108, 2026-10-27)
+- **`BasePlugin`** (`id`, `name`, `ecosystem`, `package`, `match()`, `async run(ctx)`). `match()` default-nya memakai confidence fingerprint untuk teknologi dengan `id` yang sama.
+- **`ScanContext`** berisi session, baseline, URL target akhir, fingerprint, `method_probe`, dan `responses` (respons yang sudah diambil: halaman pre-flight + probe baseline), dipakai untuk cek pasif.
+- **`PluginResult`** berisi findings, versions, `exposed_lockfiles` (diaudit CVE nanti di T-208), dan notes.
+- **Loader `select_plugins()`:** confidence ≥ 0,8 dijalankan; 0,4–0,8 dijalankan dengan catatan; < 0,4 dilewati dengan saran memakai `--framework`. `--framework` memaksa satu plugin. Plugin yang belum ada menghasilkan catatan, bukan error.
+- **Pembagian mode:**
+  - `recon`: header/cookie/CORS/TLS.
+  - `audit`: plugin.
+  - `scan`: keduanya.
+  - Semua mode dengan target URL menjalankan pre-flight, baseline, dan fingerprint.
+- **`TargetRequestError` di dalam satu cek plugin** menjadi catatan, dan cek lain tetap berjalan.
+
+### D-030 — Plugin Laravel LRV-01 s/d LRV-06 (T-109, 2026-10-27)
+- **Path dan marker** ada di `data/laravel.json`. Setiap panel punya flag `verified`. Hanya marker Telescope yang sudah diverifikasi di instalasi nyata (F-014); kalau yang terkonfirmasi panel lain, confidence LRV-04 menjadi MEDIUM.
+- **LRV-01:** bukti hanya **nama kunci** (`N kunci: APP_NAME, APP_KEY, ...`), tanpa nilai sama sekali. `.env.example` dengan `APP_KEY=` kosong dihitung LOW; selain itu CRITICAL.
+- **LRV-02:**
+  - Cek pasif dulu atas `ctx.responses`. Setelah itu `probe_patch()` (dijaga OPTIONS, D-006), kecuali `--no-method-probe`.
+  - Bukti hanya berisi nama halaman debug dan versi yang bocor; isi halaman tidak disimpan.
+  - Versi yang diambil dari halaman ini hanya yang bersumber `ERROR_PAGE`.
+- **LRV-03:** satu GET dengan `Range: bytes=0-2047`. Bukti hanya status dan ukuran dari `Content-Range`.
+- **LRV-04:** redirect tidak diikuti. 302 ke halaman login berarti aman.
+- **LRV-05:**
+  - `composer.json` (JSON dengan `require`) dan `composer.lock` (JSON dengan `packages`).
+  - Lock file yang terekspos disimpan sebagai `ExposedLockfile`.
+  - Versi `laravel/framework` dicatat dengan sumber `EXPOSED_LOCKFILE`.
+- **LRV-06:** hanya `.git/HEAD` dan `.git/config`; tidak ada object yang diunduh. Bukti `config` hanya baris `url =` (kredensial dimask), karena bagian lain bisa berisi data pribadi (`user.email`).
+- **Redaksi diperketat:** baris `.env` yang dikomentari (`# DB_PASSWORD=...`) sekarang juga dimask. Sebelumnya lolos; ketahuan saat plugin dijalankan terhadap target.
+
 ### D-023 — Konvensi commit (2026-10-27, permintaan pemilik produk)
 Gaya Conventional Commits (`feat:`, `update:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`), tanpa label fase. Judul dan body ditulis dalam bahasa Indonesia. Detail ada di CLAUDE.md.
 

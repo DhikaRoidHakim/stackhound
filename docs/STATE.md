@@ -3,7 +3,7 @@
 > Diperbarui di akhir setiap sesi kerja. Isinya adalah status saat ini saja; riwayat keputusan ada di `MEMORY.md`.
 
 **Terakhir diperbarui:** 2026-10-27
-**Fase aktif:** Fase 1 — MVP (T-101 s/d T-107 selesai). Fase 0 selesai.
+**Fase aktif:** Fase 1 — MVP (T-101 s/d T-109 selesai). Fase 0 selesai.
 **Versi PRD acuan:** 1.1.0 (`docs/StackHound_PRD_v1.1.docx`)
 **Versi package:** 0.1.0
 **Remote git:** `origin` → https://github.com/DhikaRoidHakim/stackhound.git (tracking `origin/main`)
@@ -44,10 +44,19 @@
   - Mencakup sertifikat tidak valid, sertifikat segera kedaluwarsa, penerimaan TLS 1.0/1.1, dan HTTP yang tidak diarahkan ke HTTPS.
   - Diuji dengan dua server HTTPS lokal sungguhan (modern dan legacy) di `tests/integration/test_tls_local.py`.
   - Semua target Docker berjalan di HTTP, jadi masing-masing mendapat SH-04.HTTP (LOW). Target clean sekarang memiliki tepat 1 temuan, yaitu itu.
-- `runner.execute()` menjalankan pre-flight, baseline, fingerprint, lalu audit header/cookie/CORS/TLS untuk mode dengan target URL. Hasilnya ditampilkan sebagai tabel temuan dan catatan TLS, diikuti pesan "belum tersedia" untuk tahap grading/laporan.
+- **T-108** kontrak plugin dan loader (`shound/plugins/base.py`, `shound/plugins/__init__.py`).
+- **T-109** plugin Laravel LRV-01 s/d LRV-06 (`shound/plugins/laravel.py`, `shound/data/laravel.json`):
+  - Di kedua target Laravel, keenam temuan terdeteksi; tidak ada secret palsu maupun email git yang lolos ke temuan.
+  - Dipaksa dengan `--framework laravel` di SPA dan clean: nol temuan.
+- **Alur per mode** (`runner.execute()`):
+  - Semua mode dengan target URL menjalankan pre-flight, baseline, dan fingerprint.
+  - `recon`: audit header/cookie/CORS/TLS.
+  - `audit`: plugin.
+  - `scan`: keduanya.
+  - Run masih diakhiri pesan "belum tersedia" untuk tahap grading/laporan.
 - **Kualitas:**
-  - Unit + integrasi lokal: 330 lulus, 1 skip (khusus POSIX), coverage 94%.
-  - Integrasi Docker: 52 lulus (`pytest -m targets`).
+  - Unit + integrasi lokal: 356 lulus, 1 skip (khusus POSIX), coverage 94%.
+  - Integrasi Docker: 56 lulus (`pytest -m targets`).
   - `ruff` dan `mypy --strict` bersih.
 
 ## Status git
@@ -66,8 +75,9 @@ Saat implementasi T-105 dan T-109, ikuti temuan ini (sudah terbukti di target), 
 
 ## Langkah berikutnya
 
-1. `T-108` / `T-109`: kontrak plugin dan plugin Laravel (LRV-01 s/d LRV-06). Gunakan `baseline.confirm()`, `baseline.url_for()`, `redacted_evidence()`, dan `session.probe_patch()`; ikuti F-013 s/d F-015.
-2. `T-110` / `T-111`: grading, exit code `--fail-on`, serta reporter terminal + JSON. Setelah itu mode `recon` tidak perlu lagi berakhir "belum tersedia".
+1. `T-110`: Security Grade (D-010) dan exit code `--fail-on` (D-009) dari gabungan findings.
+2. `T-111`: reporter terminal + JSON (`ScanReport`), lalu hapus pesan "belum tersedia" untuk `recon` dan `audit`.
+3. `T-112`: uji penerimaan MVP (PRD §8.1).
 
 ## Sedang dikerjakan
 

@@ -38,9 +38,9 @@ Format: `- [ ] T-xxx — judul` diikuti kriteria selesai. Rujukan `§` mengacu k
   SH-01 (HSTS/CSP/XFO/XCTO/RP/PP), SH-02 (dengan pengecualian `XSRF-TOKEN`), SH-03, SH-05.
 - [x] **T-107 — TLS audit** (SH-04)
   Validitas sertifikat, kedaluwarsa < 30 hari, TLS 1.0/1.1 diterima, redirect HTTP → HTTPS.
-- [ ] **T-108 — Kontrak plugin & registry** (`plugins/base.py`, `plugins/__init__.py`, §3.4.1)
+- [x] **T-108 — Kontrak plugin & registry** (`plugins/base.py`, `plugins/__init__.py`, §3.4.1)
   `BasePlugin`, `ScanContext`, `PluginResult`, loader berdasarkan ambang confidence 0,8 / 0,4.
-- [ ] **T-109 — Plugin Laravel LRV-01 s/d LRV-06** (§3.4.2)
+- [x] **T-109 — Plugin Laravel LRV-01 s/d LRV-06** (§3.4.2)
   Termasuk guard OPTIONS untuk LRV-02, header `Range` untuk LRV-03, tanpa follow-redirect untuk LRV-04, ekstraksi `laravel_version` dari Ignition.
   Test: nol false positive terhadap target SPA catch-all; tidak ada secret di output.
 - [ ] **T-110 — Grading & exit code** (`core/grading.py`, §3.7.2, §3.7.5)
