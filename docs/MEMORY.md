@@ -165,6 +165,32 @@ Detail berikut tidak ditentukan PRD dan ditetapkan di sini:
   - FastAPI tidak lagi dideteksi lewat `/openapi.json` dan `/docs`, karena keduanya butuh request tambahan; itu tugas plugin FastAPI (T-302). Penggantinya: 404 JSON `{"detail":"Not Found"}` (0,5) dan `Server: uvicorn` (0,3).
 - **`VersionSource.HTML_META`** ditambahkan untuk `<meta name="generator">`.
 
+### D-027 — Audit header, cookie, CORS, dan disclosure (T-106, 2026-10-27)
+- **ID turunan per pemeriksaan** (PRD hanya menulis SH-01/02/03/05):
+  - `SH-01.HSTS`, `.CSP`, `.XFO`, `.XCTO`, `.RP`, `.PP`
+  - `SH-02.HTTPONLY`, `.SECURE`, `.SAMESITE`
+  - `SH-03.REFLECT`, `.WILDCARD`, `.NULL`
+  - `SH-05.SERVER`, `.POWERED-BY`, `.FRAMEWORK`
+- **SH-01:**
+  - HSTS hanya dinilai pada respons HTTPS.
+  - CSP mode report-only dianggap tidak ada.
+  - Jika ada beberapa header CSP, CSP dianggap lemah hanya bila **semua** policy lemah (semua policy ditegakkan browser).
+  - Lemah berarti: tidak ada script-src/default-src, ada wildcard (`*`, `http:`, `https:`), atau `'unsafe-inline'` tanpa nonce/hash.
+  - XFO `ALLOW-FROM` dianggap tidak ada. CSP `frame-ancestors` menggantikan XFO.
+  - Referrer-Policy dinilai dari token terakhir.
+  - `Feature-Policy` lama diterima sebagai Permissions-Policy.
+- **SH-02:**
+  - Hanya cookie sensitif yang dinilai. Klasifikasinya ada di `data/cookies.json`: pola nama session dan daftar nama cookie CSRF.
+  - HttpOnly hanya diwajibkan untuk cookie session, bukan cookie CSRF.
+  - Secure hanya dinilai di HTTPS. Cookie yang sedang dihapus (expired / Max-Age=0) diabaikan.
+  - Satu finding per pemeriksaan, dengan satu evidence per cookie. Nilai cookie tidak pernah ditampilkan.
+- **SH-03:**
+  - Dua GET tambahan, dengan `Origin: https://shound-origin-check.invalid` dan `Origin: null`.
+  - `Access-Control-Allow-Origin: *` tanpa kredensial **tidak** dilaporkan, karena wajar untuk API publik.
+  - Origin dipantulkan + kredensial = HIGH; tanpa kredensial = MEDIUM.
+- **SH-05:** versi (pola `\d+\.\d+`) di `Server`, `X-Powered-By`, `X-AspNet-Version`, `X-AspNetMvc-Version`, atau `X-Generator` → LOW. Header tanpa versi (misalnya `X-Powered-By: Express`) tidak dilaporkan.
+- **Target SPA** sekarang juga sengaja salah konfigurasi CORS (memantulkan Origin + kredensial) untuk menguji SH-03. Target clean wajib menghasilkan nol temuan.
+
 ### D-023 — Konvensi commit (2026-10-27, permintaan pemilik produk)
 Gaya Conventional Commits (`feat:`, `update:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`), tanpa label fase. Judul dan body ditulis dalam bahasa Indonesia. Detail ada di CLAUDE.md.
 

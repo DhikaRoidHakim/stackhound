@@ -34,7 +34,7 @@ Format: `- [ ] T-xxx — judul` diikuti kriteria selesai. Rujukan `§` mengacu k
   Dua path acak, normalisasi body, `confirm(response, signature)` dengan rasio kemiripan < 0,9.
 - [x] **T-105 — Fingerprint engine** (`core/fingerprint.py`, `data/signatures.json`, §3.2)
   FP-01 s/d FP-05, skor confidence berbobot, ekstraksi versi + `version_source`.
-- [ ] **T-106 — Security headers & cookie & CORS** (`core/headers_tls.py`, §3.3)
+- [x] **T-106 — Security headers & cookie & CORS** (`core/headers_tls.py`, §3.3)
   SH-01 (HSTS/CSP/XFO/XCTO/RP/PP), SH-02 (dengan pengecualian `XSRF-TOKEN`), SH-03, SH-05.
 - [ ] **T-107 — TLS audit** (SH-04)
   Validitas sertifikat, kedaluwarsa < 30 hari, TLS 1.0/1.1 diterima, redirect HTTP → HTTPS.
