@@ -23,7 +23,7 @@
 
 ## Belum di-commit
 
-T-006, banner, dan pembaruan docs sesi ini.
+Tidak ada. Semua pekerjaan Fase 0 sudah di-commit di `main` (commit terakhir `59a8f58`), tapi belum di-push ke `origin`.
 
 ## Temuan dari target nyata yang membuat PRD perlu dikoreksi
 
