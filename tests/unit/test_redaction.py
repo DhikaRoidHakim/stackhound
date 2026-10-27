@@ -61,6 +61,16 @@ class TestEnvFiles:
         # .env values are masked wholesale; host names can be sensitive as well.
         assert "10.0.0.5" not in redact(ENV_FILE, max_length=None)
 
+    @pytest.mark.parametrize(
+        "line",
+        ["# DB_PASSWORD=old-secret-pw", "#DB_HOST=10.9.9.9", "  #  export API_KEY=old-secret-pw"],
+    )
+    def test_commented_out_values_masked(self, line: str) -> None:
+        out = redact(line)
+        assert "old-secret-pw" not in out
+        assert "10.9.9.9" not in out
+        assert out.endswith(f"={MASK}")
+
 
 class TestPatterns:
     def test_git_config_remote_credentials(self) -> None:

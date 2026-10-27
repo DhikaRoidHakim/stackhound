@@ -20,8 +20,11 @@ _PRIVATE_KEY_BLOCK = re.compile(
 # scheme://user:pass@host -> scheme://***@host. Greedy up to the last "@" of the
 # authority so an unencoded "@" inside the password is masked as well.
 _URL_CREDENTIALS = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://)[^/?#\s\"'<>]+@")
-# .env style line: KEY=value (optionally prefixed with `export`)
-_ENV_LINE = re.compile(r"(?m)^([ \t]*(?:export[ \t]+)?[A-Z_][A-Z0-9_]*[ \t]*=[ \t]*)(\S.*?)[ \t]*$")
+# .env style line: KEY=value, optionally prefixed with `export`. Commented-out lines
+# ("# DB_PASSWORD=old") are masked too: people park old secrets there.
+_ENV_LINE = re.compile(
+    r"(?m)^([ \t]*(?:#[ \t]*)?(?:export[ \t]+)?[A-Z_][A-Z0-9_]*[ \t]*=[ \t]*)(\S.*?)[ \t]*$"
+)
 # key/value pair whose key name looks sensitive: JSON, YAML, query strings, ini files
 _SENSITIVE_PAIR = re.compile(
     r"(?i)([\"']?[\w.-]*(?:passw(?:or)?d|pwd|secret|token|api[_-]?key|access[_-]?key"
