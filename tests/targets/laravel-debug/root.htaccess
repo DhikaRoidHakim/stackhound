@@ -1,0 +1,7 @@
+# Shared-hosting misconfiguration: serve real files from the project root,
+# send everything else to Laravel's public/ front controller.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>

@@ -105,6 +105,16 @@ Detail berikut tidak ditentukan PRD dan ditetapkan di sini:
 - Plugin membuat `Evidence` lewat `redacted_evidence()`, yang meredaksi url, snippet, dan note sekaligus.
 - Over-redaction (misalnya key `author`) diterima; under-redaction tidak.
 
+### D-020 — Target uji Docker (T-006, 2026-10-27)
+- Empat service di `tests/targets/docker-compose.yml`, semuanya di-bind ke `127.0.0.1` saja.
+- Laravel dibuat dalam dua versi (12 dan 10) karena halaman debug-nya berbeda (lihat F-015).
+- Miskonfigurasi yang dimodelkan: web root = root proyek, ditambah `.htaccess` ala shared hosting.
+- Secret palsu ditanam di `configure.sh`.
+- Test bertanda `targets` dikecualikan dari `pytest` biasa (`addopts`) dan otomatis di-skip kalau container belum jalan.
+
+### D-021 — Banner CLI (2026-10-27)
+Banner ASCII dari pemilik produk disimpan apa adanya di `shound/data/banner.txt`. Satu-satunya perubahan: `v1.0.0` diganti placeholder `v{version}`, yang diisi `__version__` (D-013). Dipakai di T-102.
+
 ## Fakta teknis
 
 - **F-001 — NVD `isVulnerable`.** Tanpa parameter ini, query `cpeName` juga mengembalikan CVE aplikasi lain yang hanya *berjalan di atas* komponen tersebut (misalnya ratusan aplikasi PHP). Hasil NVD juga harus di-paginate (`resultsPerPage` maksimal 2000, `startIndex`).
@@ -119,3 +129,13 @@ Detail berikut tidak ditentukan PRD dan ditetapkan di sini:
 - **F-010 — Format lock file.** `composer.lock` punya `packages` dan `packages-dev`; versi berprefiks `v`; versi `dev-*` tidak bisa diaudit. `package-lock.json` v1 memakai `dependencies`, sedangkan v2/v3 memakai `packages` dengan key `node_modules/...`. `requirements.txt` hanya bisa diaudit untuk pin `==`.
 - **F-011 — Pydantic v2:** `Optional[X]` tanpa default tetap wajib diisi.
 - **F-012 — Batas rate NVD:** 5 request / 30 detik tanpa API key, 50 request / 30 detik dengan key.
+- **F-013 — Nama cookie session Laravel tidak tetap.** Namanya diturunkan dari `APP_NAME`:
+  - Laravel ≤ 10: `<slug>_session` (contoh `laravel_session`).
+  - Laravel ≥ 11: `<slug>-session` (contoh `laravel-session`).
+
+  Sinyal yang lebih andal adalah nilainya: semua cookie terenkripsi Laravel (session dan `XSRF-TOKEN`) diawali `eyJpdiI6`, yaitu base64 dari `{"iv":`. Diverifikasi di target Docker. **Berbeda dari PRD §3.2.1**, yang hanya menyebut `laravel_session`.
+- **F-014 — Telescope 5 meng-inline JS/CSS-nya.** Tidak ada `/vendor/telescope/app.js`, dan halamannya sekitar 1,8 MB, lebih besar dari batas body 1 MiB. Signature yang terbukti ada di awal halaman: `<title>Telescope - Laravel</title>` dan `window.Telescope =`. **Berbeda dari PRD LRV-04.**
+- **F-015 — Halaman debug Laravel ≥ 11 bukan Ignition**, melainkan renderer bawaan Laravel. Markernya `MethodNotAllowedHttpException`, `## Stack Trace`, dan `Copy as Markdown`. Versi bocor dalam blok markdown yang di-escape JSON (`\nPHP 8.3.36\nLaravel 12.70.1`); karena diawali `\n`, regex tidak boleh memakai `\b`.
+  Laravel 10 (Ignition) membocorkan `"laravel_version":"10.50.3"` dan `"php_version":"…"`, dengan marker `spatie/laravel-ignition` dan `window.ignite`.
+  **PRD LRV-02 baru mencantumkan marker Ignition/Whoops.**
+- **F-016 — `OPTIONS /` di Laravel membalas `Allow: GET,HEAD`** (tanpa spasi). Guard `probe_patch()` bekerja di Laravel 10 dan 12, dan PATCH mengembalikan 405 dengan halaman debug.

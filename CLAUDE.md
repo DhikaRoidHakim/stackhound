@@ -23,7 +23,8 @@ Jika kode dan PRD berbeda, jangan diam-diam memilih salah satu: catat di `docs/S
 
 - Mesin dev: Windows 11, shell PowerShell (Git Bash juga tersedia). Python 3.11 terpasang; target dukungan Python 3.10–3.13.
 - Virtualenv di `.venv/`. Semua path di kode memakai `pathlib` / `platformdirs`, tidak ada path hard-coded gaya POSIX.
-- Repo git, branch utama `main`. Line ending LF (`.gitattributes`).
+- Repo git, branch utama `main`. Line ending LF (`.gitattributes`). Remote `origin`: https://github.com/DhikaRoidHakim/stackhound.git. Push hanya jika diminta.
+- Docker tersedia; target uji integrasi dijalankan dengan `pytest -m targets` (lihat `tests/targets/README.md`).
 
 ## Perintah (berlaku setelah Fase 0 / T-001 selesai)
 

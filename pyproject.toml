@@ -83,7 +83,8 @@ init_typed = true
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-addopts = "-m 'not live'"
+addopts = "-m 'not live and not targets'"
 markers = [
     "live: test that calls real external APIs (NVD/OSV); run explicitly with -m live",
+    "targets: test against the local Docker targets in tests/targets; run with -m targets",
 ]

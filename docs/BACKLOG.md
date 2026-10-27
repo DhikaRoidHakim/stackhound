@@ -18,7 +18,7 @@ Format: `- [ ] T-xxx — judul` diikuti kriteria selesai. Rujukan `§` mengacu k
   Test: rate terukur ≤ batas; method lain ditolak.
 - [x] **T-005 — Redaksi** (`core/redaction.py`, §3.7.4)
   Redaksi nilai env, kredensial URL, AWS key, JWT, Bearer, private key; potong ke 500 karakter. Test berbasis fixture berisi secret.
-- [ ] **T-006 — Target uji Docker** (`tests/targets/`)
+- [x] **T-006 — Target uji Docker** (`tests/targets/`)
   (a) Laravel `APP_DEBUG=true` + `.env`, `.git`, `storage/logs`, `composer.lock` terekspos, Telescope tanpa gate; (b) SPA catch-all yang selalu 200; (c) target bersih dengan header lengkap.
 
 ## Fase 1 — MVP (Minggu 1–2)
@@ -27,6 +27,7 @@ Format: `- [ ] T-xxx — judul` diikuti kriteria selesai. Rujukan `§` mengacu k
   Semua subcommand terdaftar (yang belum diimplementasi menampilkan pesan "belum tersedia"). Mode non-interaktif otomatis jika stdin bukan TTY. `--authorized` wajib untuk target URL (exit code 2).
 - [ ] **T-102 — Menu interaktif** (§2.1)
   Banner, disclaimer, menu 0–7, konfirmasi otorisasi per target.
+  **Banner wajib persis seperti `shound/data/banner.txt`** (permintaan pemilik produk). Placeholder `{version}` diisi `__version__` (D-013); jangan di-hard-code `v1.0.0`. Banner juga ditampilkan di awal `shound` tanpa argumen.
 - [ ] **T-103 — Pre-flight check** (§2.3)
   Validasi URL, DNS, konektivitas, info TLS dasar → exit code 3 jika gagal.
 - [ ] **T-104 — Baseline soft-404** (`core/baseline.py`, §3.2.2)

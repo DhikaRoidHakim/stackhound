@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SPA Fixture</title>
+  <meta name="csrf-token" content="spa-fixture-token">
+</head>
+<body>
+  <div id="app">Loading…</div>
+  <script>
+    // Mentions strings that path checks look for, to catch weak signatures.
+    window.__config = { env: "APP_KEY=", git: "ref: refs/heads/main", panel: "telescope" };
+  </script>
+</body>
+</html>

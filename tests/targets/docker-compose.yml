@@ -1,0 +1,44 @@
+# Integration test targets for StackHound (BACKLOG T-006).
+#
+# The Laravel targets are intentionally vulnerable. Ports are bound to
+# 127.0.0.1 only; do not change that.
+#
+#   docker compose -f tests/targets/docker-compose.yml up -d --build
+#   pytest -m targets
+#   docker compose -f tests/targets/docker-compose.yml down
+name: shound-targets
+
+services:
+  laravel12-debug:
+    build:
+      context: ./laravel-debug
+      args:
+        LARAVEL_CONSTRAINT: "^12.0"
+    image: shound-target-laravel12-debug
+    ports:
+      - "127.0.0.1:8081:80"
+
+  laravel10-ignition:
+    build:
+      context: ./laravel-debug
+      args:
+        LARAVEL_CONSTRAINT: "^10.0"
+    image: shound-target-laravel10-ignition
+    ports:
+      - "127.0.0.1:8082:80"
+
+  spa-catchall:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./spa-catchall/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./spa-catchall/html:/usr/share/nginx/html:ro
+    ports:
+      - "127.0.0.1:8083:80"
+
+  clean:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./clean/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./clean/html:/usr/share/nginx/html:ro
+    ports:
+      - "127.0.0.1:8084:80"
