@@ -13,12 +13,14 @@
 import asyncio
 import dataclasses
 import re
+import ssl
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from types import TracebackType
+from typing import Any
 
 import httpx
 
@@ -54,6 +56,58 @@ class TargetRequestError(Exception):
 
 
 @dataclass(frozen=True)
+class TlsInfo:
+    """TLS parameters of the connection that served a response.
+
+    Certificate fields are only available when the certificate was verified;
+    with ``--insecure`` Python does not decode the peer certificate.
+    """
+
+    version: str | None  # "TLSv1.3"
+    cipher: str | None
+    verified: bool
+    subject_cn: str | None = None
+    issuer: str | None = None
+    not_after: datetime | None = None
+    san: tuple[str, ...] = ()
+
+    @classmethod
+    def from_ssl_object(cls, ssl_object: ssl.SSLObject | ssl.SSLSocket) -> "TlsInfo":
+        cert = ssl_object.getpeercert() or {}
+        cipher = ssl_object.cipher()
+
+        def rdn_value(rdns: Any, key: str) -> str | None:
+            for rdn in rdns or ():
+                for name, value in rdn:
+                    if name == key:
+                        return str(value)
+            return None
+
+        not_after_raw = cert.get("notAfter")
+        not_after = (
+            datetime.fromtimestamp(ssl.cert_time_to_seconds(str(not_after_raw)), tz=timezone.utc)
+            if not_after_raw
+            else None
+        )
+        issuer = cert.get("issuer")
+        alt_names: Any = cert.get("subjectAltName", ())
+        return cls(
+            version=ssl_object.version(),
+            cipher=cipher[0] if cipher else None,
+            verified=ssl_object.context.verify_mode != ssl.CERT_NONE,
+            subject_cn=rdn_value(cert.get("subject"), "commonName"),
+            issuer=rdn_value(issuer, "organizationName") or rdn_value(issuer, "commonName"),
+            not_after=not_after,
+            san=tuple(str(value) for kind, value in alt_names if kind == "DNS"),
+        )
+
+    def days_remaining(self, now: datetime | None = None) -> int | None:
+        if self.not_after is None:
+            return None
+        return (self.not_after - (now or datetime.now(timezone.utc))).days
+
+
+@dataclass(frozen=True)
 class HttpResponse:
     method: str
     url: str
@@ -62,6 +116,7 @@ class HttpResponse:
     body: bytes
     truncated: bool  # body was cut at MAX_BODY_BYTES
     history: tuple[tuple[str, int], ...] = ()  # (url, status) of followed redirects
+    tls: TlsInfo | None = None  # None for plain HTTP
 
     @property
     def text(self) -> str:
@@ -120,6 +175,8 @@ class TargetSession:
         sleep: Sleep = asyncio.sleep,
     ) -> None:
         self._user_agent = settings.user_agent
+        self.verify_tls = not insecure
+        self.uses_proxy = settings.proxy is not None
         self.method_probe_enabled = method_probe
         self.request_count = 0
         self._limiter = RateLimiter(settings.rate_limit, clock=clock, sleep=sleep)
@@ -233,6 +290,7 @@ class TargetSession:
             try:
                 response = await self._client.send(request, stream=True)
                 try:
+                    tls = _tls_info(response)
                     body, truncated = await _read_capped(response, MAX_BODY_BYTES)
                 finally:
                     await response.aclose()
@@ -245,7 +303,16 @@ class TargetSession:
             headers=response.headers,
             body=body,
             truncated=truncated,
+            tls=tls,
         )
+
+
+def _tls_info(response: httpx.Response) -> TlsInfo | None:
+    stream = response.extensions.get("network_stream")
+    ssl_object = stream.get_extra_info("ssl_object") if stream is not None else None
+    if not isinstance(ssl_object, (ssl.SSLObject, ssl.SSLSocket)):
+        return None
+    return TlsInfo.from_ssl_object(ssl_object)
 
 
 async def _read_capped(response: httpx.Response, limit: int) -> tuple[bytes, bool]:

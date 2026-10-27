@@ -1,7 +1,9 @@
 import json
 from pathlib import Path
 
+import httpx
 import pytest
+import respx
 from rich.console import Console
 from typer.testing import CliRunner, Result
 
@@ -239,11 +241,36 @@ class TestUsageErrors:
         assert result.exit_code == ExitCode.USAGE
 
 
-def test_unimplemented_mode_reports_not_available() -> None:
-    result = invoke("recon", TARGET, "--authorized")
-    assert result.exit_code == ExitCode.USAGE
-    assert "belum tersedia" in text(result)
-    assert "http://127.0.0.1:8081/" in result.output
+class TestRealRunner:
+    """CLI -> runner -> pre-flight + baseline, with the target mocked by respx."""
+
+    def test_preflight_and_baseline_then_not_available(self) -> None:
+        with respx.mock(assert_all_called=False) as mock:
+            home = mock.get(f"{TARGET}/").respond(200, text="home")
+            probes = mock.get(url__regex=rf"{TARGET}/shound-[0-9a-f]+").respond(404)
+            result = invoke("recon", TARGET, "--authorized")
+        assert result.exit_code == ExitCode.USAGE
+        out = text(result)
+        assert "Pre-flight" in out
+        assert "Soft-404 tidak" in out
+        assert "belum tersedia" in out
+        assert home.call_count == 1
+        assert probes.call_count == 2
+
+    def test_unreachable_target_exits_3(self) -> None:
+        with respx.mock(assert_all_called=False) as mock:
+            mock.get(url__startswith=TARGET).mock(side_effect=httpx.ConnectError("refused"))
+            result = invoke("scan", TARGET, "--authorized")
+        assert result.exit_code == ExitCode.PREFLIGHT
+        assert "Pre-flight gagal" in text(result)
+
+    def test_local_mode_sends_nothing(self, tmp_path: Path) -> None:
+        (tmp_path / "composer.lock").write_text("{}", encoding="utf-8")
+        with respx.mock(assert_all_called=False) as mock:
+            result = invoke("deps", str(tmp_path))
+            assert len(mock.calls) == 0
+        assert result.exit_code == ExitCode.USAGE
+        assert "belum tersedia" in text(result)
 
 
 class TestConfigCommands:

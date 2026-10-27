@@ -13,6 +13,10 @@ from urllib.parse import urlsplit, urlunsplit
 
 from shound.core.models import Severity
 
+# Re-exported: CLI, menu and tests import these from here.
+from shound.errors import PreflightError as PreflightError
+from shound.errors import UsageError as UsageError
+
 Mode = Literal["recon", "audit", "cve", "deps", "scan"]
 
 FRAMEWORKS = ("laravel", "django", "fastapi", "express", "codeigniter", "generic")
@@ -21,14 +25,6 @@ LOCKFILE_NAMES = ("composer.lock", "package-lock.json", "requirements.txt")
 
 _COMPONENT_RE = re.compile(r"^[a-z0-9][a-z0-9._/-]*$")
 _VERSION_RE = re.compile(r"^v?(\d+(?:\.\d+)*(?:[-+.][0-9A-Za-z.-]+)?)$")
-
-
-class UsageError(Exception):
-    """Invalid user input; the message is shown to the user (exit code 2)."""
-
-
-class PreflightError(Exception):
-    """A local precondition failed, e.g. lock file not found (exit code 3)."""
 
 
 class FailOn(str, Enum):

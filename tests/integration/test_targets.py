@@ -16,6 +16,8 @@ from urllib.parse import urlsplit
 import pytest
 
 from shound.config import Settings
+from shound.core.baseline import Baseline, Signature
+from shound.core.preflight import run_preflight
 from shound.core.redaction import redact
 from shound.core.session import TargetSession
 
@@ -206,3 +208,59 @@ class TestCleanTarget:
         require(CLEAN)
         response = await session.get(f"{CLEAN}{path}")
         assert response.status_code == 404
+
+
+# ---------------------------------------------------------------- pre-flight & baseline
+ENV_SIGNATURE = re.compile(r"^APP_KEY=", re.MULTILINE)
+WEAK_SIGNATURES: dict[str, Signature] = {
+    # Deliberately weak: each string also appears inside the SPA shell, so only the
+    # baseline comparison can stop a false positive there.
+    "/.env": lambda r: "APP_KEY=" in r.text,
+    "/.git/HEAD": lambda r: "ref: refs/heads/" in r.text,
+    "/telescope": lambda r: "telescope" in r.text.lower(),
+}
+
+
+@pytest.mark.parametrize("base", [*LARAVEL_TARGETS, SPA, CLEAN])
+async def test_preflight_on_targets(session: TargetSession, base: str) -> None:
+    require(base)
+    result = await run_preflight(f"{base}/", session)
+    assert result.addresses == ("127.0.0.1",)
+    assert result.response.status_code == 200
+    assert result.tls is None  # plain HTTP
+
+
+@pytest.mark.parametrize("base", LARAVEL_TARGETS)
+async def test_baseline_confirms_real_exposures_on_laravel(
+    session: TargetSession, base: str
+) -> None:
+    require(base)
+    baseline = await Baseline.capture(session, f"{base}/")
+    assert baseline.available
+    assert not baseline.soft_404
+    env = await session.get(baseline.url_for("/.env"))
+    assert baseline.confirm(env, ENV_SIGNATURE)
+    for path, signature in WEAK_SIGNATURES.items():
+        response = await session.get(baseline.url_for(path))
+        assert baseline.confirm(response, signature), path
+
+
+async def test_baseline_rejects_everything_on_spa(session: TargetSession) -> None:
+    require(SPA)
+    baseline = await Baseline.capture(session, f"{SPA}/")
+    assert baseline.soft_404
+    assert baseline.soft_404_finding() is not None
+    for path, signature in WEAK_SIGNATURES.items():
+        response = await session.get(baseline.url_for(path))
+        assert response.status_code == 200
+        assert signature(response), f"{path}: shell should contain the weak marker"
+        assert not baseline.confirm(response, signature), path
+
+
+async def test_baseline_on_clean_target(session: TargetSession) -> None:
+    require(CLEAN)
+    baseline = await Baseline.capture(session, f"{CLEAN}/")
+    assert not baseline.soft_404
+    for path, signature in WEAK_SIGNATURES.items():
+        response = await session.get(baseline.url_for(path))
+        assert not baseline.confirm(response, signature), path
