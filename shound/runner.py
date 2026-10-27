@@ -14,6 +14,7 @@ from rich.table import Table
 
 from shound.config import Settings
 from shound.core.baseline import Baseline
+from shound.core.fingerprint import FingerprintResult, Observation, fingerprint
 from shound.core.preflight import PreflightResult, run_preflight
 from shound.core.redaction import redact
 from shound.core.session import TargetSession
@@ -22,7 +23,7 @@ from shound.exitcodes import ExitCode
 from shound.options import Mode, ScanRequest
 
 PENDING_TASKS: dict[Mode, str] = {
-    "recon": "T-105 s/d T-107",
+    "recon": "T-106, T-107",
     "audit": "T-108, T-109",
     "cve": "T-209",
     "deps": "T-207",
@@ -111,6 +112,45 @@ def baseline_table(baseline: Baseline) -> Table:
     return table
 
 
+def fingerprint_table(result: FingerprintResult) -> Table:
+    table = Table(title="Fingerprint", title_justify="left")
+    table.add_column("Teknologi", style="bold")
+    table.add_column("Kategori")
+    table.add_column("Confidence", justify="right")
+    table.add_column("Sinyal")
+    levels = {"strong": "green", "likely": "yellow", "weak": "dim"}
+    for tech in result.technologies:
+        style = levels[tech.level]
+        signals = "\n".join(f"{s.check_id} {s.evidence}" for s in tech.signals)
+        table.add_row(
+            escape(tech.name),
+            tech.category,
+            f"[{style}]{tech.confidence:.0%}[/{style}]",
+            escape(signals),
+        )
+    if not result.technologies:
+        table.add_row("-", "-", "-", "Tidak ada sinyal teknologi yang dikenali.")
+    return table
+
+
+def versions_table(result: FingerprintResult) -> Table:
+    table = Table(title="Versi terdeteksi", title_justify="left")
+    table.add_column("Komponen", style="bold")
+    table.add_column("Versi")
+    table.add_column("Sumber")
+    table.add_column("Catatan")
+    for version in result.versions:
+        note = (
+            f"Banner menyebut {version.distro}: patch mungkin sudah di-backport"
+            if version.backport_risk
+            else ""
+        )
+        table.add_row(
+            escape(version.component), escape(version.version), version.source.value, escape(note)
+        )
+    return table
+
+
 async def probe_target(
     request: ScanRequest, target: str, settings: Settings, console: Console
 ) -> None:
@@ -121,6 +161,15 @@ async def probe_target(
         console.print(preflight_table(result))
         baseline = await Baseline.capture(session, result.final_url)
         console.print(baseline_table(baseline))
+        detected = fingerprint(
+            [
+                Observation(result.response),
+                *(Observation(sample.response, not_found=True) for sample in baseline.samples),
+            ]
+        )
+        console.print(fingerprint_table(detected))
+        if detected.versions:
+            console.print(versions_table(detected))
         console.print(f"[dim]Request terkirim ke target: {session.request_count}[/dim]")
 
 

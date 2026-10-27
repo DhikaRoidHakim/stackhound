@@ -17,6 +17,8 @@ import pytest
 
 from shound.config import Settings
 from shound.core.baseline import Baseline, Signature
+from shound.core.fingerprint import LIKELY, Observation, fingerprint
+from shound.core.models import VersionSource
 from shound.core.preflight import run_preflight
 from shound.core.redaction import redact
 from shound.core.session import TargetSession
@@ -264,3 +266,58 @@ async def test_baseline_on_clean_target(session: TargetSession) -> None:
     for path, signature in WEAK_SIGNATURES.items():
         response = await session.get(baseline.url_for(path))
         assert not baseline.confirm(response, signature), path
+
+
+# ---------------------------------------------------------------- fingerprint
+async def observe(session: TargetSession, base: str) -> list[Observation]:
+    result = await run_preflight(f"{base}/", session)
+    baseline = await Baseline.capture(session, result.final_url)
+    return [
+        Observation(result.response),
+        *(Observation(sample.response, not_found=True) for sample in baseline.samples),
+    ]
+
+
+@pytest.mark.parametrize("base", LARAVEL_TARGETS)
+async def test_fingerprint_laravel_targets(session: TargetSession, base: str) -> None:
+    require(base)
+    result = fingerprint(await observe(session, base))
+    laravel = result.get("laravel")
+    assert laravel is not None
+    assert laravel.level == "strong"
+    assert {s.check_id for s in laravel.signals} == {"FP-01", "FP-04"}
+    assert result.frameworks()[0].id == "laravel"
+    [php] = result.versions_of("php")
+    assert php.source is VersionSource.HEADER
+    assert php.distro is None  # official PHP image is built from source
+    [apache] = result.versions_of("apache")
+    assert apache.distro == "Debian"
+
+
+@pytest.mark.parametrize(("base", "major"), [(LARAVEL12, "12"), (LARAVEL10, "10")])
+async def test_fingerprint_reads_framework_version_from_debug_page(
+    session: TargetSession, base: str, major: str
+) -> None:
+    require(base)
+    probe = await session.probe_patch(f"{base}/")
+    assert probe is not None
+    result = fingerprint([Observation(probe)])
+    [laravel] = result.versions_of("laravel")
+    assert laravel.version.startswith(f"{major}.")
+    assert laravel.source is VersionSource.ERROR_PAGE
+    assert result.versions_of("php")
+
+
+async def test_fingerprint_spa_has_no_likely_framework(session: TargetSession) -> None:
+    require(SPA)
+    result = fingerprint(await observe(session, SPA))
+    assert all(t.confidence < LIKELY for t in result.frameworks())
+    assert [v.version for v in result.versions_of("nginx")] == ["1.27.5"]
+
+
+async def test_fingerprint_clean_target(session: TargetSession) -> None:
+    require(CLEAN)
+    result = fingerprint(await observe(session, CLEAN))
+    assert result.frameworks() == []
+    assert result.versions == []  # server_tokens off
+    assert result.confidence("nginx") == 0.9

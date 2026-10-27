@@ -83,6 +83,7 @@ class BaselineSample:
     title: str | None
     normalized: str
     digest: str
+    response: HttpResponse  # raw probe response, reused by fingerprinting (FP-04)
 
     @classmethod
     def from_response(cls, response: HttpResponse) -> "BaselineSample":
@@ -96,6 +97,7 @@ class BaselineSample:
             title=_title(text),
             normalized=normalized,
             digest=hashlib.sha256(normalized.encode()).hexdigest(),
+            response=response,
         )
 
 

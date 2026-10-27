@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "distro_tokens": [
+    "Ubuntu", "ubuntu", "Debian", "deb", "CentOS", "Red Hat", "RedHat", "Fedora",
+    "Amazon Linux", "amzn", "el7", "el8", "el9", "Rocky", "AlmaLinux", "SUSE", "Alpine"
+  ],
+  "technologies": [
+    {
+      "id": "laravel",
+      "name": "PHP Laravel",
+      "category": "framework",
+      "implies": ["php"],
+      "signals": [
+        {
+          "id": "laravel.cookie.session",
+          "type": "cookie",
+          "name": "(?i)^[a-z0-9._-]*[_-]session$",
+          "value": "^eyJpdiI6",
+          "weight": 0.6
+        },
+        {"id": "laravel.cookie.xsrf", "type": "cookie", "name": "^XSRF-TOKEN$", "weight": 0.15},
+        {"id": "laravel.cookie.encrypted", "type": "cookie", "value": "^eyJpdiI6", "weight": 0.3},
+        {
+          "id": "laravel.meta.csrf",
+          "type": "body",
+          "pattern": "(?i)<meta[^>]+name=[\"']csrf-token[\"']",
+          "weight": 0.2
+        },
+        {
+          "id": "laravel.asset.livewire",
+          "type": "body",
+          "pattern": "/(?:vendor/)?livewire/livewire(?:\\.min)?\\.js",
+          "weight": 0.3
+        },
+        {
+          "id": "laravel.error.not-found",
+          "type": "body",
+          "on": "not_found",
+          "pattern": "border-r border-gray-400 tracking-wider[\\s\\S]{0,200}?Not Found",
+          "weight": 0.5
+        },
+        {
+          "id": "laravel.debug.ignition",
+          "type": "body",
+          "pattern": "\"laravel_version\":\"(?P<version>\\d+\\.\\d+\\.\\d+)\"",
+          "version_source": "ERROR_PAGE",
+          "weight": 1.0
+        },
+        {
+          "id": "laravel.debug.ignition-marker",
+          "type": "body",
+          "pattern": "spatie/laravel-ignition|facade/ignition|window\\.ignite",
+          "weight": 1.0
+        },
+        {
+          "id": "laravel.debug.renderer",
+          "type": "body",
+          "pattern": "PHP \\d+\\.\\d+\\.\\d+(?:\\\\n|\\n)Laravel (?P<version>\\d+\\.\\d+\\.\\d+)",
+          "version_source": "ERROR_PAGE",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "id": "codeigniter",
+      "name": "PHP CodeIgniter",
+      "category": "framework",
+      "implies": ["php"],
+      "signals": [
+        {"id": "codeigniter.cookie.session", "type": "cookie", "name": "^ci_session$", "weight": 0.6},
+        {
+          "id": "codeigniter.error.not-found",
+          "type": "body",
+          "on": "not_found",
+          "pattern": "Can't find a route for|404 - (?:File|Page) Not Found",
+          "weight": 0.5
+        }
+      ]
+    },
+    {
+      "id": "django",
+      "name": "Python Django",
+      "category": "framework",
+      "implies": ["python"],
+      "signals": [
+        {"id": "django.cookie.csrftoken", "type": "cookie", "name": "^csrftoken$", "weight": 0.4},
+        {"id": "django.cookie.sessionid", "type": "cookie", "name": "^sessionid$", "weight": 0.1},
+        {
+          "id": "django.form.csrf",
+          "type": "body",
+          "pattern": "name=[\"']csrfmiddlewaretoken[\"']",
+          "weight": 0.5
+        },
+        {"id": "django.asset.admin", "type": "body", "pattern": "/static/admin/", "weight": 0.3},
+        {
+          "id": "django.debug.urlconf",
+          "type": "body",
+          "on": "not_found",
+          "pattern": "Using the URLconf defined in",
+          "weight": 0.9
+        },
+        {
+          "id": "django.error.not-found",
+          "type": "body",
+          "on": "not_found",
+          "pattern": "The requested resource was not found on this server\\.",
+          "weight": 0.4
+        }
+      ]
+    },
+    {
+      "id": "fastapi",
+      "name": "Python FastAPI",
+      "category": "framework",
+      "implies": ["python"],
+      "signals": [
+        {
+          "id": "fastapi.error.not-found",
+          "type": "body",
+          "on": "not_found",
+          "pattern": "^\\s*\\{\"detail\":\\s*\"Not Found\"\\}\\s*$",
+          "weight": 0.5
+        },
+        {"id": "fastapi.header.uvicorn", "type": "header", "name": "Server", "pattern": "(?i)^uvicorn", "weight": 0.3}
+      ]
+    },
+    {
+      "id": "express",
+      "name": "Node.js Express",
+      "category": "framework",
+      "implies": ["nodejs"],
+      "signals": [
+        {"id": "express.header.powered-by", "type": "header", "name": "X-Powered-By", "pattern": "^Express$", "weight": 0.9},
+        {"id": "express.cookie.connect-sid", "type": "cookie", "name": "^connect\\.sid$", "weight": 0.5},
+        {
+          "id": "express.error.cannot-get",
+          "type": "body",
+          "on": "not_found",
+          "pattern": "<pre>Cannot GET /",
+          "weight": 0.6
+        }
+      ]
+    },
+    {
+      "id": "aspnet",
+      "name": "ASP.NET",
+      "category": "framework",
+      "signals": [
+        {
+          "id": "aspnet.header.version",
+          "type": "header",
+          "name": "X-AspNet-Version",
+          "pattern": "^(?P<version>\\d+\\.\\d+(?:\\.\\d+)*)",
+          "version_source": "HEADER",
+          "weight": 0.9
+        },
+        {"id": "aspnet.header.powered-by", "type": "header", "name": "X-Powered-By", "pattern": "^ASP\\.NET$", "weight": 0.8},
+        {"id": "aspnet.cookie.session", "type": "cookie", "name": "^ASP\\.NET_SessionId$", "weight": 0.6}
+      ]
+    },
+    {
+      "id": "nextjs",
+      "name": "Next.js",
+      "category": "frontend",
+      "implies": ["nodejs"],
+      "signals": [
+        {"id": "nextjs.header.powered-by", "type": "header", "name": "X-Powered-By", "pattern": "^Next\\.js", "weight": 0.9},
+        {"id": "nextjs.asset.static", "type": "body", "pattern": "/_next/static/", "weight": 0.6}
+      ]
+    },
+    {
+      "id": "wordpress",
+      "name": "WordPress",
+      "category": "cms",
+      "implies": ["php"],
+      "signals": [
+        {
+          "id": "wordpress.meta.generator",
+          "type": "body",
+          "pattern": "(?i)<meta[^>]+name=[\"']generator[\"'][^>]+content=[\"']WordPress (?P<version>\\d+\\.\\d+(?:\\.\\d+)?)",
+          "version_source": "HTML_META",
+          "weight": 0.8
+        },
+        {"id": "wordpress.asset.content", "type": "body", "pattern": "/wp-content/", "weight": 0.6}
+      ]
+    },
+    {
+      "id": "php",
+      "name": "PHP",
+      "category": "language",
+      "signals": [
+        {
+          "id": "php.header.powered-by",
+          "type": "header",
+          "name": "X-Powered-By",
+          "pattern": "PHP/(?P<version>\\d+\\.\\d+(?:\\.\\d+)?)",
+          "version_source": "HEADER",
+          "weight": 0.9
+        },
+        {"id": "php.cookie.phpsessid", "type": "cookie", "name": "^PHPSESSID$", "weight": 0.5},
+        {
+          "id": "php.debug.ignition",
+          "type": "body",
+          "pattern": "\"php_version\":\"(?P<version>\\d+\\.\\d+\\.\\d+)\"",
+          "version_source": "ERROR_PAGE",
+          "weight": 0.9
+        },
+        {
+          "id": "php.debug.renderer",
+          "type": "body",
+          "pattern": "PHP (?P<version>\\d+\\.\\d+\\.\\d+)(?:\\\\n|\\n)Laravel \\d+\\.\\d+\\.\\d+",
+          "version_source": "ERROR_PAGE",
+          "weight": 0.9
+        }
+      ]
+    },
+    {"id": "python", "name": "Python", "category": "language", "signals": []},
+    {"id": "nodejs", "name": "Node.js", "category": "language", "signals": []},
+    {
+      "id": "nginx",
+      "name": "nginx",
+      "category": "server",
+      "signals": [
+        {
+          "id": "nginx.header.server",
+          "type": "header",
+          "name": "Server",
+          "pattern": "(?i)^nginx(?:/(?P<version>\\d+\\.\\d+(?:\\.\\d+)?))?",
+          "version_source": "HEADER",
+          "weight": 0.9
+        }
+      ]
+    },
+    {
+      "id": "apache",
+      "name": "Apache HTTP Server",
+      "category": "server",
+      "signals": [
+        {
+          "id": "apache.header.server",
+          "type": "header",
+          "name": "Server",
+          "pattern": "^Apache(?:/(?P<version>\\d+\\.\\d+(?:\\.\\d+)?))?",
+          "version_source": "HEADER",
+          "weight": 0.9
+        }
+      ]
+    },
+    {
+      "id": "iis",
+      "name": "Microsoft IIS",
+      "category": "server",
+      "signals": [
+        {
+          "id": "iis.header.server",
+          "type": "header",
+          "name": "Server",
+          "pattern": "^Microsoft-IIS(?:/(?P<version>\\d+\\.\\d+))?",
+          "version_source": "HEADER",
+          "weight": 0.9
+        }
+      ]
+    },
+    {
+      "id": "openssl",
+      "name": "OpenSSL",
+      "category": "library",
+      "signals": [
+        {
+          "id": "openssl.header.server",
+          "type": "header",
+          "name": "Server",
+          "pattern": "OpenSSL/(?P<version>\\d+\\.\\d+\\.\\d+[a-z]?)",
+          "version_source": "HEADER",
+          "weight": 0.9
+        }
+      ]
+    }
+  ]
+}

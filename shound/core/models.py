@@ -36,10 +36,25 @@ class Confidence(str, Enum):
 class VersionSource(str, Enum):
     HEADER = "HEADER"
     ERROR_PAGE = "ERROR_PAGE"
+    HTML_META = "HTML_META"  # e.g. <meta name="generator" content="WordPress 6.4">
     EXPOSED_LOCKFILE = "EXPOSED_LOCKFILE"
     ASSET_HEURISTIC = "ASSET_HEURISTIC"
     LOCAL_LOCKFILE = "LOCAL_LOCKFILE"
     MANUAL = "MANUAL"
+
+
+class DetectedVersion(_StrictModel):
+    """A component version seen on the target (FP-05), input for the CVE engine."""
+
+    component: str  # "php", "laravel", "nginx", ...
+    version: str
+    source: VersionSource
+    evidence: str  # already redacted, e.g. "X-Powered-By: PHP/8.3.36"
+    distro: str | None = None  # distro token in the banner -> patches may be backported
+
+    @property
+    def backport_risk(self) -> bool:
+        return self.distro is not None
 
 
 class Evidence(_StrictModel):
