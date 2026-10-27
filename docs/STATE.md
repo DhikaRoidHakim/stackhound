@@ -3,7 +3,7 @@
 > Diperbarui di akhir setiap sesi kerja. Isinya adalah status saat ini saja; riwayat keputusan ada di `MEMORY.md`.
 
 **Terakhir diperbarui:** 2026-10-27
-**Fase aktif:** Fase 1 — MVP (T-101, T-102 selesai). Fase 0 selesai.
+**Fase aktif:** Fase 1 — MVP (T-101 s/d T-104 selesai). Fase 0 selesai.
 **Versi PRD acuan:** 1.1.0 (`docs/StackHound_PRD_v1.1.docx`)
 **Versi package:** 0.1.0
 **Remote git:** `origin` → https://github.com/DhikaRoidHakim/stackhound.git (tracking `origin/main`)
@@ -22,9 +22,17 @@
   - Banner dari `data/banner.txt` dengan versi berjalan.
   - Menu 0–7 dalam bahasa Indonesia, konfirmasi izin sekali per target, dan submenu Pengaturan.
   - Diverifikasi secara visual di console Windows sungguhan.
+- **T-103** pre-flight (`shound/core/preflight.py`):
+  - DNS (dilewati jika memakai proxy), GET halaman target, dan info TLS dari koneksi (`TlsInfo` di `HttpResponse`).
+  - Gagal → exit code 3. Sertifikat self-signed menyarankan `--insecure`.
+  - Diuji terhadap server HTTPS lokal dengan sertifikat self-signed (`tests/integration/test_preflight_tls.py`).
+- **T-104** baseline soft-404 (`shound/core/baseline.py`):
+  - `Baseline.capture()`, `confirm()`, `url_for()`, dan temuan INFO `FP-06`.
+  - Di target SPA, signature lemah cocok di `/.env`, `/.git/HEAD`, dan `/telescope`, tapi semuanya tetap ditolak. Di target Laravel, eksposur asli terkonfirmasi.
+- `runner.execute()` sekarang menjalankan pre-flight dan baseline untuk mode dengan target URL, lalu mencetak "belum tersedia" untuk pemeriksaan lanjutan.
 - **Kualitas:**
-  - Unit: 182 lulus, 1 skip (khusus POSIX).
-  - Integrasi: 30 lulus (`pytest -m targets`).
+  - Unit: 226 lulus, 1 skip (khusus POSIX), coverage 93%.
+  - Integrasi: 38 lulus (`pytest -m targets`).
   - `ruff` dan `mypy --strict` bersih.
 
 ## Status git
@@ -43,10 +51,9 @@ Saat implementasi T-105 dan T-109, ikuti temuan ini (sudah terbukti di target), 
 
 ## Langkah berikutnya
 
-1. `T-103`: pre-flight check (DNS, konektivitas, info TLS; exit code 3 jika gagal).
-2. `T-104`: baseline soft-404.
-3. `T-105`: fingerprint engine.
-4. Untuk menyambungkan mode `recon`, ganti placeholder di `runner.execute()` dengan pipeline sungguhan.
+1. `T-105`: fingerprint engine. Pakai `PreflightResult.response` sebagai halaman awal, dan ikuti F-013 untuk cookie Laravel.
+2. `T-106` / `T-107`: security header, cookie, CORS, dan TLS (SH-01 s/d SH-05).
+3. Ganti pesan "belum tersedia" di `runner.probe_target()` dengan pipeline recon sungguhan.
 
 ## Sedang dikerjakan
 

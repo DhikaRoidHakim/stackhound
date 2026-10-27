@@ -122,6 +122,25 @@ Detail berikut tidak ditentukan PRD dan ditetapkan di sini:
 - **`--no-cache` + `--refresh`** dipakai bersamaan → exit code 2.
 - **Menu memakai protocol `Prompts`** (`QuestionaryPrompts` untuk produksi, `ScriptedPrompts` di test). Jawaban `None` berarti batal: kembali ke menu, atau keluar jika terjadi di menu utama.
 
+### D-024 — Pre-flight (T-103, 2026-10-27)
+- **Urutan:** DNS (`getaddrinfo`), lalu GET halaman target dengan redirect host-sama, lalu catatan TLS.
+- **Halaman hasil pre-flight disimpan** di `PreflightResult.response` agar fingerprinting tidak mengulang request.
+- **Kapan exit code 3:** DNS gagal atau kosong, koneksi gagal, atau sertifikat tidak bisa diverifikasi. Untuk kasus sertifikat, pesannya menyarankan `--insecure`. Status HTTP apa pun (termasuk 5xx) dianggap target bisa dijangkau.
+- **Peringatan (bukan kegagalan):** redirect ke host lain, halaman 5xx, `--insecure` aktif, dan sertifikat kedaluwarsa atau kurang dari 30 hari lagi.
+- **Dengan proxy, DNS lokal dilewati**, karena host internal mungkin hanya bisa di-resolve oleh proxy.
+- **Info TLS (`TlsInfo`) melekat di setiap `HttpResponse`.** Sumbernya `network_stream` httpcore, jadi tidak perlu koneksi TLS terpisah yang melewati session dan proxy. Detail sertifikat hanya tersedia jika sertifikatnya terverifikasi (lihat F-021). Analisis TLS lengkap (versi lama, dsb.) tetap tugas SH-04 / T-107.
+
+### D-025 — Baseline soft-404 (T-104, 2026-10-27)
+- **Probe:** `shound-<16 hex acak>` dan `shound-<16 hex acak>.txt`, nilainya baru di setiap scan.
+- **Base path:** probe dan semua cek path di-resolve relatif ke direktori target (`base_url()`): `/app` dan `/app/index.php` sama-sama menjadi `/app/`. Plugin wajib memakai `baseline.url_for(path)`.
+- **Normalisasi body sebelum dibandingkan:**
+  - Path yang di-echo (minimal 3 karakter) diganti, karena halaman 404 sering menampilkan path yang diminta.
+  - Hex 8 karakter atau lebih, token 20 karakter atau lebih, angka, dan whitespace juga diganti.
+- **Mirip baseline** jika hash sama, atau rasio `difflib` ≥ 0,9. Perbandingan hanya pada 20.000 karakter pertama supaya biayanya terbatas.
+- **`confirm()`:** status harus 200 atau 206 (respons `Range` LRV-03), signature (regex atau callable) harus cocok, dan body tidak mirip baseline.
+- **Jika semua probe gagal**, `confirm()` hanya bergantung pada signature. Kondisi ini ditampilkan sebagai "baseline tidak tersedia".
+- **ID baru `FP-06`** (INFO "Target memakai soft-404"). PRD hanya menyebut temuan INFO tanpa ID.
+
 ### D-023 — Konvensi commit (2026-10-27, permintaan pemilik produk)
 Gaya Conventional Commits (`feat:`, `update:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`), tanpa label fase. Judul dan body ditulis dalam bahasa Indonesia. Detail ada di CLAUDE.md.
 
@@ -153,4 +172,7 @@ Banner ASCII dari pemilik produk disimpan apa adanya di `shound/data/banner.txt`
   **PRD LRV-02 baru mencantumkan marker Ignition/Whoops.**
 - **F-017 — `sys.stdin.isatty()` tidak bisa dipercaya di Windows.** Hasilnya `True` untuk device `NUL` dan untuk mintty (Git Bash), padahal prompt_toolkit crash di keduanya (`NoConsoleScreenBufferError`). `prompts.is_interactive_terminal()` karena itu juga memeriksa `GetConsoleMode` pada handle stdin.
 - **F-018 — questionary `Choice(value=None)` mengembalikan judulnya, bukan `None`.** Untuk pilihan "Kembali", gunakan nilai eksplisit (misalnya `"back"`) lalu petakan ke `None`.
+- **F-019 — `OPENSSL_CONF` di mesin dev** menunjuk ke file PostgreSQL yang tidak ada, sehingga `openssl req` gagal. Test TLS lokal karena itu memakai config OpenSSL minimal miliknya sendiri dan menghapus variabel tersebut dari environment subprocess.
+- **F-020 — httpcore menyediakan extension `network_stream` untuk HTTP/1.1 maupun HTTP/2.** Dengan `get_extra_info("ssl_object")`, objek SSL koneksi bisa dibaca saat respons di-stream.
+- **F-021 — Dengan `verify_mode=CERT_NONE` (`--insecure`), `getpeercert()` mengembalikan `{}`.** Subject, issuer, dan tanggal kedaluwarsa tidak tersedia tanpa library parser X.509 tambahan.
 - **F-016 — `OPTIONS /` di Laravel membalas `Allow: GET,HEAD`** (tanpa spasi). Guard `probe_patch()` bekerja di Laravel 10 dan 12, dan PATCH mengembalikan 405 dengan halaman debug.

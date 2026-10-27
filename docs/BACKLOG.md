@@ -28,9 +28,9 @@ Format: `- [ ] T-xxx — judul` diikuti kriteria selesai. Rujukan `§` mengacu k
 - [x] **T-102 — Menu interaktif** (§2.1)
   Banner, disclaimer, menu 0–7, konfirmasi otorisasi per target.
   **Banner wajib persis seperti `shound/data/banner.txt`** (permintaan pemilik produk). Placeholder `{version}` diisi `__version__` (D-013); jangan di-hard-code `v1.0.0`. Banner juga ditampilkan di awal `shound` tanpa argumen.
-- [ ] **T-103 — Pre-flight check** (§2.3)
+- [x] **T-103 — Pre-flight check** (§2.3)
   Validasi URL, DNS, konektivitas, info TLS dasar → exit code 3 jika gagal.
-- [ ] **T-104 — Baseline soft-404** (`core/baseline.py`, §3.2.2)
+- [x] **T-104 — Baseline soft-404** (`core/baseline.py`, §3.2.2)
   Dua path acak, normalisasi body, `confirm(response, signature)` dengan rasio kemiripan < 0,9.
 - [ ] **T-105 — Fingerprint engine** (`core/fingerprint.py`, `data/signatures.json`, §3.2)
   FP-01 s/d FP-05, skor confidence berbobot, ekstraksi versi + `version_source`.

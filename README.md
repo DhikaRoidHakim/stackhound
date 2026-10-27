@@ -18,7 +18,7 @@
 > Memindai sistem tanpa izin dapat melanggar hukum (misalnya UU ITE).
 
 > [!NOTE]
-> **Status: pre-alpha (v0.1.0).** Fondasi sudah selesai. CLI dan menu interaktif sudah bisa dipakai untuk validasi input, otorisasi, dan `shound config`. Mode audit (`recon`, `audit`, `cve`, `deps`, `scan`) masih dibangun dan untuk sementara mengembalikan pesan "belum tersedia" (exit code 2). Lihat [Roadmap](#roadmap).
+> **Status: pre-alpha (v0.1.0).** Fondasi sudah selesai. CLI dan menu interaktif sudah bisa dipakai, termasuk `shound config`. Mode dengan target URL sudah menjalankan **pre-flight check** (DNS, konektivitas, TLS) dan **baseline soft-404**. Pemeriksaan audit sesungguhnya masih dibangun, jadi run diakhiri pesan "belum tersedia" (exit code 2). Lihat [Roadmap](#roadmap).
 
 ## Kenapa StackHound?
 
