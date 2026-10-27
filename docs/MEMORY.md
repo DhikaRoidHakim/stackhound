@@ -61,7 +61,7 @@ Kode dan komentar dalam bahasa Inggris. Output CLI dan laporan dalam bahasa Indo
 
 Keduanya menggantikan `~/.shound/` dari v1.0.0.
 
-### D-013 — Versi package & header identitas (2026-10-27) — *usulan, menunggu konfirmasi*
+### D-013 — Versi package & header identitas (2026-10-27) — *disetujui pemilik produk 2026-10-27*
 Versi package dimulai dari `0.1.0` (di `shound/__init__.py`, dibaca hatchling) dan menjadi `1.0.0` saat MVP dirilis. `User-Agent` dan `X-Security-Audit` memakai `__version__`, bukan angka "1.1" seperti contoh di PRD.
 **Alasan:** "1.1" di PRD adalah versi dokumen. Header harus menunjukkan versi tool yang benar-benar berjalan.
 
@@ -79,6 +79,31 @@ Semua model di `core/models.py` mewarisi `_StrictModel` (`extra="forbid"`). Sela
 ### D-016 — Guard jaringan di test (2026-10-27)
 `tests/conftest.py` mem-patch `socket.socket.connect` sehingga koneksi selain loopback raise `RuntimeError`. Loopback tetap diizinkan karena asyncio di Windows memakai koneksi lokal untuk self-pipe.
 **Alasan:** menegakkan aturan "unit test tidak boleh menyentuh jaringan" secara otomatis, tanpa dependency tambahan.
+
+### D-017 — Konfigurasi (T-003, 2026-10-27)
+- `nvd_api_key` bertipe `SecretStr`, sehingga tidak muncul di `repr` maupun `model_dump_json`. Nilai aslinya hanya diambil lewat `.get_secret_value()`.
+- `config.json` hanya menyimpan nilai yang di-set eksplisit oleh pengguna. Nilai disimpan setelah koersi tipe (misalnya `"25"` → `25.0`).
+- Penulisan file atomik (tmp lalu `os.replace`), dibuat dengan mode `0600` di POSIX.
+- Nilai env yang kosong diabaikan. Key yang tidak dikenal di file → `ConfigError`.
+- Batas: `timeout` 0–300 detik, `rate_limit` 0–20.
+
+### D-018 — Desain HTTP session (T-004, 2026-10-27)
+Detail berikut tidak ditentukan PRD dan ditetapkan di sini:
+- **Rate limiter:** token bucket berkapasitas 1, yaitu jarak antar-request `1/rate`. Dengan kapasitas lebih besar, burst + refill bisa melebihi `rate` dalam satu jendela 1 detik.
+- **Throttling:** saat target membalas 429/503, rate dibagi dua (minimal 0,5 rps) dan semua request dijeda global sesuai `Retry-After`. Jika header itu absen, jeda 5 detik; maksimal 60 detik. Retry paling banyak 2 kali, lalu respons terakhir dikembalikan apa adanya.
+- **Redirect:** tidak diikuti secara default. Jika diminta (`follow_redirects=True`), redirect diikuti oleh session sendiri, bukan oleh httpx, agar setiap hop terkena rate limit. Hanya host yang sama yang diikuti (`www.` diabaikan), maksimal 5 hop. Redirect ke host lain tidak diikuti karena di luar target yang diizinkan.
+- **`trust_env=False`:** variabel `HTTP(S)_PROXY` dan netrc dari sistem diabaikan. Proxy hanya diambil dari config shound (`SHOUND_PROXY` / `--proxy`), supaya hasil scan reproducible dan kredensial netrc tidak terkirim ke target.
+- **PATCH:** request PATCH hanya bisa dikirim lewat `probe_patch()`, dengan body kosong (`Content-Length: 0`). `request()` menolak method selain GET/HEAD/OPTIONS sebelum ada I/O.
+- **Error transport** dibungkus menjadi `TargetRequestError`, sehingga plugin tidak bergantung langsung pada httpx.
+
+### D-019 — Redaksi (T-005, 2026-10-27)
+- Pola redaksi ditulis di kode (`core/redaction.py`), bukan di `data/*.json`. Ini kontrol keamanan, dan tidak boleh bisa dilemahkan dengan mengedit file data.
+- Urutannya: redaksi dulu, baru dipotong ke 500 karakter, supaya pemotongan tidak menyisakan potongan secret yang lolos dari pola.
+- Semua nilai baris `.env` dengan key huruf besar dimask, termasuk yang tidak tampak rahasia seperti `DB_HOST`.
+- Key yang sensitif (password, secret, token, api_key, auth, dan sejenisnya) dimask dalam format JSON, YAML, query string, maupun ini.
+- Yang juga dimask: kredensial di URL (sampai `@` terakhir di authority), Bearer/Basic, JWT, AWS key id, token GitHub/Slack/Stripe/Google, `base64:` APP_KEY, dan blok private key (termasuk yang terpotong).
+- Plugin membuat `Evidence` lewat `redacted_evidence()`, yang meredaksi url, snippet, dan note sekaligus.
+- Over-redaction (misalnya key `author`) diterima; under-redaction tidak.
 
 ## Fakta teknis
 

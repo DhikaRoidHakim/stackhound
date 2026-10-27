@@ -11,12 +11,12 @@ Format: `- [ ] T-xxx — judul` diikuti kriteria selesai. Rujukan `§` mengacu k
   Selesai jika `pip install -e ".[dev]"`, `shound --help`, `pytest`, `ruff`, dan `mypy` semuanya berjalan.
 - [x] **T-002 — Model data** (`core/models.py`, §4)
   Membuat `Severity`, `Confidence`, `VersionSource`, `Evidence`, `Finding`, `UnifiedVulnerability`, dan `ScanReport`. Unit test untuk serialisasi JSON dan nilai default.
-- [ ] **T-003 — Konfigurasi** (`config.py`, §3.8.1)
+- [x] **T-003 — Konfigurasi** (`config.py`, §3.8.1)
   Prioritas CLI > env > `config.json` > default; lokasi via `platformdirs`; API key termask; file `0600` di POSIX.
-- [ ] **T-004 — HTTP session** (`core/session.py`, §6.2–6.3)
+- [x] **T-004 — HTTP session** (`core/session.py`, §6.2–6.3)
   `httpx.AsyncClient` dengan token bucket global, konkurensi maksimal 5, batas body 1 MB, header `User-Agent` + `X-Security-Audit`, penanganan `429`/`Retry-After`, proxy, `--insecure`, dan whitelist method (GET/HEAD/OPTIONS, plus PATCH hanya lewat API khusus probe).
   Test: rate terukur ≤ batas; method lain ditolak.
-- [ ] **T-005 — Redaksi** (`core/redaction.py`, §3.7.4)
+- [x] **T-005 — Redaksi** (`core/redaction.py`, §3.7.4)
   Redaksi nilai env, kredensial URL, AWS key, JWT, Bearer, private key; potong ke 500 karakter. Test berbasis fixture berisi secret.
 - [ ] **T-006 — Target uji Docker** (`tests/targets/`)
   (a) Laravel `APP_DEBUG=true` + `.env`, `.git`, `storage/logs`, `composer.lock` terekspos, Telescope tanpa gate; (b) SPA catch-all yang selalu 200; (c) target bersih dengan header lengkap.
