@@ -11,10 +11,12 @@
 """
 
 import asyncio
+import contextlib
 import dataclasses
 import re
 import ssl
 import time
+import warnings
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -108,6 +110,35 @@ class TlsInfo:
 
 
 @dataclass(frozen=True)
+class TlsHandshake:
+    accepted: bool | None  # None: could not be tested (proxy, local OpenSSL)
+    info: TlsInfo | None = None
+    error: str | None = None
+
+
+def _handshake_context(*, verify: bool, version: ssl.TLSVersion | None) -> ssl.SSLContext | None:
+    if verify:
+        context = ssl.create_default_context()
+    else:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+    if version is None:
+        return context
+    try:
+        with warnings.catch_warnings():
+            # TLSv1/TLSv1_1 are deprecated in Python; probing for them is the point.
+            warnings.simplefilter("ignore", DeprecationWarning)
+            # Legacy protocols need the lowest security level in OpenSSL 3.
+            context.set_ciphers("DEFAULT:@SECLEVEL=0")
+            context.minimum_version = version
+            context.maximum_version = version
+    except (ValueError, ssl.SSLError):
+        return None
+    return context
+
+
+@dataclass(frozen=True)
 class HttpResponse:
     method: str
     url: str
@@ -176,6 +207,7 @@ class TargetSession:
     ) -> None:
         self._user_agent = settings.user_agent
         self.verify_tls = not insecure
+        self._timeout = settings.timeout
         self.uses_proxy = settings.proxy is not None
         self.method_probe_enabled = method_probe
         self.request_count = 0
@@ -247,6 +279,48 @@ class TargetSession:
             history.append((response.url, response.status_code))
             response = await self._send(method, next_url, headers)
         return dataclasses.replace(response, history=tuple(history))
+
+    async def tls_handshake(
+        self,
+        host: str,
+        port: int,
+        *,
+        verify: bool,
+        version: ssl.TLSVersion | None = None,
+    ) -> "TlsHandshake":
+        """Open a TLS connection, complete the handshake and close it (SH-04).
+
+        No HTTP request is sent. The connection goes through the same rate limiter
+        and concurrency cap as every request. It is direct, so it is not available
+        when a proxy is configured.
+        """
+        if self.uses_proxy:
+            return TlsHandshake(None, error="tidak tersedia saat memakai proxy")
+        context = _handshake_context(verify=verify, version=version)
+        if context is None:
+            return TlsHandshake(None, error=f"{version} tidak didukung OpenSSL lokal")
+        await self._limiter.acquire()
+        async with self._semaphore:
+            self.request_count += 1
+            try:
+                _, writer = await asyncio.wait_for(
+                    asyncio.open_connection(host, port, ssl=context, server_hostname=host),
+                    timeout=self._timeout,
+                )
+            except ssl.SSLCertVerificationError as exc:
+                return TlsHandshake(False, error=exc.verify_message or str(exc))
+            except ssl.SSLError as exc:
+                if exc.reason == "NO_PROTOCOLS_AVAILABLE":  # refused locally, not by the server
+                    return TlsHandshake(None, error=f"{version} tidak didukung OpenSSL lokal")
+                return TlsHandshake(False, error=exc.reason or str(exc))
+            except (OSError, asyncio.TimeoutError) as exc:
+                return TlsHandshake(False, error=str(exc) or type(exc).__name__)
+            ssl_object = writer.get_extra_info("ssl_object")
+            info = TlsInfo.from_ssl_object(ssl_object) if ssl_object is not None else None
+            writer.close()
+            with contextlib.suppress(OSError, ssl.SSLError):
+                await writer.wait_closed()
+        return TlsHandshake(True, info=info)
 
     async def probe_patch(self, url: str) -> HttpResponse | None:
         """Guarded PATCH probe for LRV-02 (PRD §3.4.2, MEMORY D-006).

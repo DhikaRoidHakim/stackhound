@@ -1,24 +1,33 @@
-"""HTTP security headers, cookie flags, CORS and version disclosure
-(PRD §3.3, BACKLOG T-106). TLS (SH-04) follows in T-107.
+"""HTTP security headers, cookie flags, CORS, TLS and version disclosure
+(PRD §3.3, BACKLOG T-106/T-107).
 
 ``audit_security_headers`` and ``audit_cookies`` are pure functions over
-responses that were already fetched; only ``audit_cors`` sends requests (two
-GETs with a crafted ``Origin`` header).
+responses that were already fetched. ``audit_cors`` sends two GETs with a crafted
+``Origin`` header; ``audit_tls`` opens a few bare TLS handshakes and one plain
+HTTP GET.
 """
 
 import json
 import re
+import ssl
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from functools import cache
 from importlib.resources import files
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 from shound.core.models import Confidence, Finding, Severity
+from shound.core.preflight import TLS_EXPIRY_WARNING_DAYS, PreflightResult
 from shound.core.redaction import redacted_evidence
-from shound.core.session import HttpResponse, TargetSession
+from shound.core.session import (
+    REDIRECT_STATUSES,
+    HttpResponse,
+    TargetRequestError,
+    TargetSession,
+    TlsInfo,
+)
 
 PLUGIN = "core.headers"
 HSTS_MIN_MAX_AGE = 15_552_000  # 180 days
@@ -503,3 +512,156 @@ async def audit_cors(session: TargetSession, url: str) -> list[Finding]:
 def _allows_credentials(response: HttpResponse) -> bool:
     value = response.headers.get("access-control-allow-credentials") or ""
     return value.strip().lower() == "true"
+
+
+# ------------------------------------------------------------------ SH-04 TLS
+LEGACY_PROTOCOLS = (
+    (ssl.TLSVersion.TLSv1, "TLS 1.0"),
+    (ssl.TLSVersion.TLSv1_1, "TLS 1.1"),
+)
+_TLS_REFERENCE = (
+    "https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html"
+)
+
+
+@dataclass(frozen=True)
+class TlsAudit:
+    findings: list[Finding]
+    notes: list[str]  # checks that could not run, shown to the user
+
+
+async def audit_tls(session: TargetSession, preflight: PreflightResult) -> TlsAudit:
+    """SH-04: certificate validity and expiry, legacy protocols, HTTP -> HTTPS."""
+    response = preflight.response
+    parts = urlsplit(response.url)
+    findings: list[Finding] = []
+    notes: list[str] = []
+
+    if parts.scheme != "https":
+        findings.append(
+            _finding(
+                "SH-04.HTTP",
+                "Situs disajikan lewat HTTP tanpa redirect ke HTTPS",
+                "tls",
+                Severity.LOW,
+                "Lalu lintas termasuk cookie dan kredensial dapat dibaca atau diubah di jaringan.",
+                "Pasang sertifikat TLS (misalnya Let's Encrypt) dan arahkan semua request HTTP "
+                "ke HTTPS dengan redirect 301.",
+                response,
+                [f"GET {response.url} -> {response.status_code}"],
+                [_TLS_REFERENCE],
+            )
+        )
+        return TlsAudit(findings, notes)
+
+    host = parts.hostname or ""
+    port = parts.port or 443
+    tls = response.tls
+    certificate: TlsInfo | None = tls if tls is not None and tls.verified else None
+
+    if session.uses_proxy:
+        notes.append("Cek sertifikat dan protokol TLS lama dilewati karena memakai proxy.")
+    else:
+        if certificate is None:  # --insecure: the request itself did not verify
+            check = await session.tls_handshake(host, port, verify=True)
+            if check.accepted:
+                certificate = check.info
+            elif check.accepted is False:
+                findings.append(
+                    _finding(
+                        "SH-04.CERT",
+                        "Sertifikat TLS tidak valid",
+                        "tls",
+                        Severity.HIGH,
+                        f"Sertifikat gagal diverifikasi: {check.error}. Browser menampilkan "
+                        "peringatan, dan pengguna yang terbiasa mengabaikannya rentan MITM.",
+                        "Gunakan sertifikat dari CA tepercaya yang cocok dengan nama host dan "
+                        "masih berlaku, lengkap dengan rantai intermediate-nya.",
+                        response,
+                        [f"{host}:{port} -> {check.error}"],
+                        [_TLS_REFERENCE],
+                    )
+                )
+
+        accepted: list[str] = []
+        for version, label in LEGACY_PROTOCOLS:
+            result = await session.tls_handshake(host, port, verify=False, version=version)
+            if result.accepted:
+                accepted.append(label)
+            elif result.accepted is None:
+                notes.append(f"{label} tidak dapat diuji: {result.error}.")
+        if accepted:
+            findings.append(
+                _finding(
+                    "SH-04.LEGACY",
+                    "Server menerima protokol TLS usang",
+                    "tls",
+                    Severity.MEDIUM,
+                    f"Server menyelesaikan handshake {' dan '.join(accepted)}, yang sudah "
+                    "dinyatakan usang (RFC 8996) dan rentan terhadap serangan downgrade.",
+                    "Batasi ke TLS 1.2 dan 1.3 (nginx: ssl_protocols TLSv1.2 TLSv1.3; "
+                    "Apache: SSLProtocol -all +TLSv1.2 +TLSv1.3).",
+                    response,
+                    [f"{host}:{port} menerima {label}" for label in accepted],
+                    [_TLS_REFERENCE, "https://www.rfc-editor.org/rfc/rfc8996"],
+                )
+            )
+
+    not_after = certificate.not_after if certificate is not None else None
+    days = certificate.days_remaining() if certificate is not None else None
+    if not_after is not None and days is not None and days < TLS_EXPIRY_WARNING_DAYS:
+        findings.append(
+            _finding(
+                "SH-04.EXPIRY",
+                "Sertifikat TLS segera kedaluwarsa",
+                "tls",
+                Severity.MEDIUM,
+                f"Sertifikat {(certificate and certificate.subject_cn) or host} berlaku sampai "
+                f"{not_after:%Y-%m-%d} ({days} hari lagi).",
+                "Perpanjang sertifikat dan pastikan perpanjangan otomatis (certbot/ACME) berjalan.",
+                response,
+                [f"notAfter {not_after:%Y-%m-%d %H:%M} UTC"],
+                [_TLS_REFERENCE],
+            )
+        )
+
+    findings.extend(await _http_redirect(session, preflight, host, port, notes))
+    return TlsAudit(findings, notes)
+
+
+async def _http_redirect(
+    session: TargetSession,
+    preflight: PreflightResult,
+    host: str,
+    port: int,
+    notes: list[str],
+) -> list[Finding]:
+    """Does plain HTTP on port 80 send visitors to HTTPS?"""
+    if any(url.startswith("http://") for url, _ in preflight.response.history):
+        return []  # the pre-flight already followed an http -> https redirect
+    if port != 443:
+        notes.append("Cek redirect HTTP -> HTTPS dilewati: HTTPS tidak di port standar 443.")
+        return []
+    netloc = f"[{host}]" if ":" in host else host
+    http_url = urlunsplit(("http", netloc, "/", "", ""))
+    try:
+        plain = await session.get(http_url)
+    except TargetRequestError:
+        notes.append("Port 80 tidak merespons; tidak ada layanan HTTP biasa yang perlu diarahkan.")
+        return []
+    location = plain.headers.get("location", "")
+    if plain.status_code in REDIRECT_STATUSES and location.lower().startswith("https://"):
+        return []
+    return [
+        _finding(
+            "SH-04.HTTP",
+            "HTTP tidak diarahkan ke HTTPS",
+            "tls",
+            Severity.LOW,
+            "Pengunjung yang membuka versi HTTP tetap dilayani tanpa enkripsi.",
+            "Arahkan semua request HTTP ke HTTPS dengan redirect 301 dan pasang HSTS.",
+            plain,
+            [f"GET {http_url} -> {plain.status_code} {location}".rstrip()],
+            [_TLS_REFERENCE],
+        )
+    ]

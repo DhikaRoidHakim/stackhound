@@ -18,7 +18,7 @@ import pytest
 from shound.config import Settings
 from shound.core.baseline import Baseline, Signature
 from shound.core.fingerprint import LIKELY, Observation, fingerprint
-from shound.core.headers_tls import audit_cookies, audit_cors, audit_security_headers
+from shound.core.headers_tls import audit_cookies, audit_cors, audit_security_headers, audit_tls
 from shound.core.models import Finding, Severity, VersionSource
 from shound.core.preflight import run_preflight
 from shound.core.redaction import redact
@@ -363,3 +363,13 @@ async def test_header_audit_spa_cors(session: TargetSession) -> None:
 async def test_header_audit_clean_target_has_no_findings(session: TargetSession) -> None:
     require(CLEAN)
     assert await audit_target(session, CLEAN) == {}
+
+
+@pytest.mark.parametrize("base", [*LARAVEL_TARGETS, SPA, CLEAN])
+async def test_tls_audit_plain_http_targets(session: TargetSession, base: str) -> None:
+    require(base)
+    result = await run_preflight(f"{base}/", session)
+    sent = session.request_count
+    audit = await audit_tls(session, result)
+    assert [f.id for f in audit.findings] == ["SH-04.HTTP"]
+    assert session.request_count == sent  # decided from the pre-flight response alone

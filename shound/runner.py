@@ -15,7 +15,7 @@ from rich.table import Table
 from shound.config import Settings
 from shound.core.baseline import Baseline
 from shound.core.fingerprint import FingerprintResult, Observation, fingerprint
-from shound.core.headers_tls import audit_cookies, audit_cors, audit_security_headers
+from shound.core.headers_tls import audit_cookies, audit_cors, audit_security_headers, audit_tls
 from shound.core.models import Finding, Severity, severity_rank
 from shound.core.preflight import PreflightResult, run_preflight
 from shound.core.redaction import redact
@@ -25,7 +25,7 @@ from shound.exitcodes import ExitCode
 from shound.options import Mode, ScanRequest
 
 PENDING_TASKS: dict[Mode, str] = {
-    "recon": "T-107, T-110, T-111",
+    "recon": "T-110, T-111",
     "audit": "T-108, T-109",
     "cve": "T-209",
     "deps": "T-207",
@@ -210,10 +210,14 @@ async def probe_target(
             *audit_cookies(responses),
             *await audit_cors(session, result.final_url),
         ]
+        tls_audit = await audit_tls(session, result)
+        findings.extend(tls_audit.findings)
         soft_404 = baseline.soft_404_finding()
         if soft_404 is not None:
             findings.append(soft_404)
         console.print(findings_table(findings))
+        for note in tls_audit.notes:
+            console.print(f"[dim]Catatan TLS: {escape(note)}[/dim]")
         console.print(f"[dim]Request terkirim ke target: {session.request_count}[/dim]")
 
 
