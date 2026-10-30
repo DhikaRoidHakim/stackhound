@@ -3,7 +3,7 @@
 > Diperbarui di akhir setiap sesi kerja. Isinya adalah status saat ini saja; riwayat keputusan ada di `MEMORY.md`.
 
 **Terakhir diperbarui:** 2026-10-30
-**Fase aktif:** Fase 1 — MVP (T-101 s/d T-110 selesai). Fase 0 selesai.
+**Fase aktif:** Fase 1 — MVP (T-101 s/d T-111 selesai; tinggal T-112). Fase 0 selesai.
 **Versi PRD acuan:** 1.1.0 (`docs/StackHound_PRD_v1.1.docx`)
 **Versi package:** 0.1.0
 **Remote git:** `origin` → https://github.com/DhikaRoidHakim/stackhound.git (tracking `origin/main`)
@@ -61,10 +61,14 @@
     - `recon` Laravel: D (69).
     - `recon` SPA: F (44).
     - `recon` clean: A+ (97).
-  - `recon` dan `audit` kini selesai penuh. `scan`, `cve`, `deps`, dan `-o` masih exit code 2 sampai fiturnya ada.
+  - `recon` dan `audit` kini selesai penuh. `scan`, `cve`, dan `deps` masih exit code 2 sampai engine CVE ada.
+- **T-111** reporter terminal + JSON (`shound/core/reporter/`, D-032):
+  - `-o laporan.json` menulis `ScanReport` lengkap.
+  - Diuji terhadap kedua target Laravel: tidak ada satu pun secret palsu, email git, atau nilai cookie di file JSON.
+  - `.md` dan `.html` ditolak sebelum scan dimulai (T-306/T-307).
 - **Kualitas:**
-  - Unit + integrasi lokal: 393 lulus, 1 skip (khusus POSIX), coverage 94%.
-  - Integrasi Docker: 61 lulus (`pytest -m targets`).
+  - Unit + integrasi lokal: 405 lulus, 1 skip (khusus POSIX), coverage 94%.
+  - Integrasi Docker: 63 lulus (`pytest -m targets`).
   - `ruff` dan `mypy --strict` bersih.
 
 ## Status git
@@ -83,8 +87,8 @@ Saat implementasi T-105 dan T-109, ikuti temuan ini (sudah terbukti di target), 
 
 ## Langkah berikutnya
 
-1. `T-111`: reporter terminal + JSON. Bangun `ScanReport` dari `TargetRun` + `GradeResult`, tulis file `-o *.json`, lalu hapus blokir `-o` di `runner.execute()`.
-2. `T-112`: uji penerimaan MVP (PRD §8.1).
+1. `T-112`: uji penerimaan MVP (PRD §8.1). Kriteria 1–6 bisa diuji di target Docker dan sebagian besar sudah tercakup test integrasi. Kriteria 7 (Windows **dan** Ubuntu, Python 3.10 dan 3.13) butuh lingkungan Linux dan Python 3.10/3.13, yang belum tersedia di mesin ini.
+2. Setelah MVP: Fase 2 (CVE & dependency), dimulai dari T-201 (cache SQLite).
 
 ## Sedang dikerjakan
 

@@ -18,7 +18,7 @@
 > Memindai sistem tanpa izin dapat melanggar hukum (misalnya UU ITE).
 
 > [!NOTE]
-> **Status: pre-alpha (v0.1.0).** Fondasi sudah selesai. CLI dan menu interaktif sudah bisa dipakai, termasuk `shound config`. Mode dengan target URL sudah menjalankan **pre-flight check** (DNS, konektivitas, TLS) dan **baseline soft-404**. Pemeriksaan audit sesungguhnya masih dibangun, jadi run diakhiri pesan "belum tersedia" (exit code 2). Lihat [Roadmap](#roadmap).
+> **Status: pre-alpha (v0.1.0).** `shound recon` (fingerprint, security header, cookie, CORS, TLS) dan `shound audit` (plugin Laravel LRV-01 – LRV-06) sudah berfungsi penuh, lengkap dengan Security Grade, exit code `--fail-on`, dan laporan JSON (`-o laporan.json`). Korelasi CVE (`cve`, `deps`, `scan`) masih dibangun dan untuk sementara keluar dengan exit code 2. Lihat [Roadmap](#roadmap).
 
 ## Kenapa StackHound?
 
@@ -46,9 +46,9 @@ Ada dua mode:
 - **Tidak keluar dari target.** Redirect hanya diikuti di host yang sama.
 - **Bukti, bukan tebakan.** Cek eksposur file wajib mencocokkan signature konten dan dibandingkan dengan baseline soft-404, sehingga server yang membalas `200` untuk semua path tidak menghasilkan false positive.
 
-## Rencana pemakaian
+## Pemakaian
 
-> Perintah dan opsinya sudah terdaftar dan divalidasi, tapi mode audit belum menjalankan pemeriksaan. Spesifikasi lengkap ada di PRD (§2.2).
+> `recon` dan `audit` sudah bisa dipakai. `cve`, `deps`, `scan`, serta laporan Markdown/HTML masih dikembangkan. Spesifikasi lengkap ada di PRD (§2.2).
 > Menu interaktif (`shound` tanpa argumen) membutuhkan console terminal seperti PowerShell, cmd, atau Windows Terminal. Di Git Bash gunakan `winpty shound`.
 
 ```bash

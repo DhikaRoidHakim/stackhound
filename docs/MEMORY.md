@@ -247,6 +247,19 @@ Implementasi D-009 dan D-010 di `core/grading.py`, dengan detail yang belum dite
   - `scan`, `cve`, dan `deps` tetap berakhir dengan exit code 2 ("belum lengkap") sampai engine CVE ada.
   - `-o/--output` tetap berakhir dengan exit code 2 tanpa menulis file sampai T-111, supaya CI tidak menganggap laporan sudah ada.
 
+### D-032 — Reporter terminal + JSON (T-111, 2026-10-30)
+- **Satu sumber data.** `build_report()` (`core/reporter/report.py`) membangun `ScanReport`, lalu reporter terminal dan JSON merender **objek yang sama**. Isinya:
+  - Temuan, diurutkan berdasarkan severity lalu ID.
+  - Grade dan skor, beserta `grade_caps` dan `penalties`.
+  - `summary` (jumlah per severity).
+  - Fingerprint, termasuk versi dari plugin (tanpa duplikat).
+  - `notes` dan `errors`.
+- **Field baru di `ScanReport`:** `notes`, `grade_caps`, `penalties` (`ScorePenalty`), dan `summary`. `report_schema` tetap `"1.0"` karena belum pernah dirilis.
+- **Laporan JSON tidak pernah memuat body respons mentah atau isi lock file.** `ExposedLockfile.content` sengaja tidak masuk laporan. Evidence sudah diredaksi saat dibuat.
+- **File ditulis atomik** (tmp lalu replace), folder induk dibuat otomatis. Laporan tetap ditulis walau exit code 1 (`--fail-on`), karena justru saat itu laporannya dibutuhkan CI.
+- **Format `.md`/`.html` ditolak sebelum scan dimulai** (exit code 2, tanpa request), daripada baru gagal setelah scan penuh. Didukung nanti di T-306/T-307.
+- **Gagal pre-flight (exit code 3) tidak menghasilkan file laporan.**
+
 ### D-023 — Konvensi commit (2026-10-27, permintaan pemilik produk)
 Gaya Conventional Commits (`feat:`, `update:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`), tanpa label fase. Judul dan body ditulis dalam bahasa Indonesia. Detail ada di CLAUDE.md.
 
