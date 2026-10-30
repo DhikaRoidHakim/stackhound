@@ -11,6 +11,7 @@ import json
 import re
 import socket
 from collections.abc import AsyncIterator
+from pathlib import Path
 from urllib.parse import urlsplit
 
 import pytest
@@ -438,3 +439,24 @@ def test_cli_grade_and_exit_code(args: list[str], code: int, grade: str) -> None
     result = CliRunner().invoke(cli.app, [*args, "--authorized"])
     assert result.exit_code == code, result.output
     assert f"Security Grade: {grade} " in " ".join(result.output.split())
+
+
+@pytest.mark.parametrize("base", LARAVEL_TARGETS)
+def test_cli_json_report_has_no_secrets(base: str, tmp_path: Path) -> None:
+    require(base)
+    path = tmp_path / "report.json"
+    result = CliRunner().invoke(cli.app, ["audit", base, "--authorized", "-o", str(path)])
+    assert result.exit_code == 0, result.output
+    raw = path.read_text(encoding="utf-8")
+    assert_no_fake_secrets(raw)
+    assert "fixture@example.test" not in raw
+    report = json.loads(raw)
+    assert {f["id"] for f in report["findings"]} == {
+        "LRV-01",
+        "LRV-02",
+        "LRV-03",
+        "LRV-04",
+        "LRV-05",
+        "LRV-06",
+    }
+    assert report["grade"] == "F"

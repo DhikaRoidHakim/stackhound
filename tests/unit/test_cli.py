@@ -289,16 +289,27 @@ class TestRealRunner:
         assert "Gagal diperiksa: CORS" in text(partial)
         assert failing.exit_code == ExitCode.FINDINGS  # findings win over partial
 
-    def test_report_output_not_written_yet(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.chdir(tmp_path)
+    def test_json_report_written(self, tmp_path: Path) -> None:
+        path = tmp_path / "out" / "report.json"
         with respx.mock(assert_all_called=False) as mock:
             self.mock_site(mock)
-            result = invoke("recon", TARGET, "--authorized", "-o", "report.json")
+            result = invoke("recon", TARGET, "--authorized", "-o", str(path), "--fail-on", "medium")
+        assert result.exit_code == ExitCode.FINDINGS  # report still written on exit 1
+        assert "Laporan disimpan" in text(result)
+        report = json.loads(path.read_text(encoding="utf-8"))
+        assert (report["mode"], report["target"]) == ("recon", f"{TARGET}/")
+        assert (report["grade"], report["score"]) == ("C", 75)
+        assert "SH-01.CSP" in [f["id"] for f in report["findings"]]
+
+    @pytest.mark.parametrize("name", ["report.md", "report.html"])
+    def test_unsupported_format_refused_before_scanning(self, tmp_path: Path, name: str) -> None:
+        with respx.mock(assert_all_called=False) as mock:
+            self.mock_site(mock)
+            result = invoke("recon", TARGET, "--authorized", "-o", str(tmp_path / name))
+            assert len(mock.calls) == 0
         assert result.exit_code == ExitCode.USAGE
-        assert "T-111" in text(result)
-        assert not (tmp_path / "report.json").exists()
+        assert "hanya .json" in text(result)
+        assert not (tmp_path / name).exists()
 
     def test_scan_still_incomplete(self) -> None:
         with respx.mock(assert_all_called=False) as mock:

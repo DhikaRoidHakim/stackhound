@@ -114,6 +114,11 @@ class UnifiedVulnerability(_StrictModel):
     reference_urls: list[str] = Field(default_factory=list)
 
 
+class ScorePenalty(_StrictModel):
+    label: str  # "LRV-01" or "laravel/framework (3 kerentanan)"
+    points: float
+
+
 class ScanReport(_StrictModel):
     report_schema: str = "1.0"
     tool_version: str
@@ -126,6 +131,10 @@ class ScanReport(_StrictModel):
     vulnerabilities: list[UnifiedVulnerability] = Field(default_factory=list)
     unaudited_components: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)  # causes of a partial scan
+    notes: list[str] = Field(default_factory=list)  # informational, e.g. skipped checks
     insecure_tls: bool = False
     score: int = Field(ge=0, le=100)
     grade: str
+    grade_caps: list[str] = Field(default_factory=list)  # why the grade was capped
+    penalties: list[ScorePenalty] = Field(default_factory=list)  # largest first
+    summary: dict[str, int] = Field(default_factory=dict)  # severity -> count
