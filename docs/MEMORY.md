@@ -235,6 +235,18 @@ Detail berikut tidak ditentukan PRD dan ditetapkan di sini:
 - **LRV-06:** hanya `.git/HEAD` dan `.git/config`; tidak ada object yang diunduh. Bukti `config` hanya baris `url =` (kredensial dimask), karena bagian lain bisa berisi data pribadi (`user.email`).
 - **Redaksi diperketat:** baris `.env` yang dikomentari (`# DB_PASSWORD=...`) sekarang juga dimask. Sebelumnya lolos; ketahuan saat plugin dijalankan terhadap target.
 
+### D-031 — Grading & exit code (T-110, 2026-10-30)
+Implementasi D-009 dan D-010 di `core/grading.py`, dengan detail yang belum ditentukan sebelumnya:
+- **Severity `UNKNOWN`** (kerentanan tanpa data CVSS) diperlakukan sebagai **MEDIUM**, baik untuk penalti, batasan A+, maupun `--fail-on`. Alasannya: "kosong ≠ aman" (CLAUDE.md aturan 5).
+- **Pembulatan skor** memakai half-up (`floor(x + 0.5)`), dengan batas bawah 0.
+- **Kerentanan dikelompokkan** per `(component_name, ecosystem)`. Faktor dev dependency × 0,5 hanya berlaku jika **semua** kerentanan komponen itu berasal dari dependency dev.
+- **Batasan A+** ("tanpa temuan MEDIUM ke atas") berlaku untuk confidence apa pun. Cap F/C hanya untuk confidence HIGH.
+- **`--fail-on` menghitung temuan dengan confidence apa pun.** Ini konservatif: CVE dari banner (confidence LOW) tetap bisa menggagalkan CI. Tanpa `--fail-on`, exit code 0 walaupun ada temuan CRITICAL.
+- **Scan parsial (exit code 4)** berasal dari kegagalan request di cek tertentu: probe baseline, CORS, atau cek plugin. Kegagalan plugin kini disimpan di `PluginResult.errors`, terpisah dari `notes`. Cek TLS yang "tidak teruji" karena OpenSSL lokal **tidak** membuat scan parsial.
+- **Mode yang sudah lengkap: `recon` dan `audit`.** Keduanya mengembalikan exit code hasil hitungan.
+  - `scan`, `cve`, dan `deps` tetap berakhir dengan exit code 2 ("belum lengkap") sampai engine CVE ada.
+  - `-o/--output` tetap berakhir dengan exit code 2 tanpa menulis file sampai T-111, supaya CI tidak menganggap laporan sudah ada.
+
 ### D-023 — Konvensi commit (2026-10-27, permintaan pemilik produk)
 Gaya Conventional Commits (`feat:`, `update:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`), tanpa label fase. Judul dan body ditulis dalam bahasa Indonesia. Detail ada di CLAUDE.md.
 

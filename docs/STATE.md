@@ -2,8 +2,8 @@
 
 > Diperbarui di akhir setiap sesi kerja. Isinya adalah status saat ini saja; riwayat keputusan ada di `MEMORY.md`.
 
-**Terakhir diperbarui:** 2026-10-27
-**Fase aktif:** Fase 1 — MVP (T-101 s/d T-109 selesai). Fase 0 selesai.
+**Terakhir diperbarui:** 2026-10-30
+**Fase aktif:** Fase 1 — MVP (T-101 s/d T-110 selesai). Fase 0 selesai.
 **Versi PRD acuan:** 1.1.0 (`docs/StackHound_PRD_v1.1.docx`)
 **Versi package:** 0.1.0
 **Remote git:** `origin` → https://github.com/DhikaRoidHakim/stackhound.git (tracking `origin/main`)
@@ -53,10 +53,18 @@
   - `recon`: audit header/cookie/CORS/TLS.
   - `audit`: plugin.
   - `scan`: keduanya.
-  - Run masih diakhiri pesan "belum tersedia" untuk tahap grading/laporan.
+- **T-110** grading dan exit code (`shound/core/grading.py`, D-031):
+  - Security Grade A+ s/d F, ditampilkan dalam panel ringkasan.
+  - `--fail-on` → exit code 1; scan parsial → exit code 4.
+  - Hasil di target Docker:
+    - `audit` Laravel: F (0).
+    - `recon` Laravel: D (69).
+    - `recon` SPA: F (44).
+    - `recon` clean: A+ (97).
+  - `recon` dan `audit` kini selesai penuh. `scan`, `cve`, `deps`, dan `-o` masih exit code 2 sampai fiturnya ada.
 - **Kualitas:**
-  - Unit + integrasi lokal: 356 lulus, 1 skip (khusus POSIX), coverage 94%.
-  - Integrasi Docker: 56 lulus (`pytest -m targets`).
+  - Unit + integrasi lokal: 393 lulus, 1 skip (khusus POSIX), coverage 94%.
+  - Integrasi Docker: 61 lulus (`pytest -m targets`).
   - `ruff` dan `mypy --strict` bersih.
 
 ## Status git
@@ -75,9 +83,8 @@ Saat implementasi T-105 dan T-109, ikuti temuan ini (sudah terbukti di target), 
 
 ## Langkah berikutnya
 
-1. `T-110`: Security Grade (D-010) dan exit code `--fail-on` (D-009) dari gabungan findings.
-2. `T-111`: reporter terminal + JSON (`ScanReport`), lalu hapus pesan "belum tersedia" untuk `recon` dan `audit`.
-3. `T-112`: uji penerimaan MVP (PRD §8.1).
+1. `T-111`: reporter terminal + JSON. Bangun `ScanReport` dari `TargetRun` + `GradeResult`, tulis file `-o *.json`, lalu hapus blokir `-o` di `runner.execute()`.
+2. `T-112`: uji penerimaan MVP (PRD §8.1).
 
 ## Sedang dikerjakan
 
@@ -88,6 +95,9 @@ Tidak ada.
 Tidak ada.
 
 ## Catatan lingkungan
+
+Docker Desktop tidak otomatis menyala setelah mesin restart. Jalankan dulu (`%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe`), lalu `docker compose -f tests/targets/docker-compose.yml up -d`. Tanpa itu, test `-m targets` di-skip dan `shound` ke target lokal berakhir dengan exit code 3.
+
 
 Menu interaktif tidak bisa dijalankan di Git Bash/mintty biasa (gunakan `winpty shound`) dan juga tidak dari tool Bash milik Claude. Untuk cek manual, gunakan PowerShell atau Windows Terminal.
 

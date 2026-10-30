@@ -43,7 +43,7 @@ Format: `- [ ] T-xxx — judul` diikuti kriteria selesai. Rujukan `§` mengacu k
 - [x] **T-109 — Plugin Laravel LRV-01 s/d LRV-06** (§3.4.2)
   Termasuk guard OPTIONS untuk LRV-02, header `Range` untuk LRV-03, tanpa follow-redirect untuk LRV-04, ekstraksi `laravel_version` dari Ignition.
   Test: nol false positive terhadap target SPA catch-all; tidak ada secret di output.
-- [ ] **T-110 — Grading & exit code** (`core/grading.py`, §3.7.2, §3.7.5)
+- [x] **T-110 — Grading & exit code** (`core/grading.py`, §3.7.2, §3.7.5)
 - [ ] **T-111 — Reporter terminal + JSON** (§3.7.1, §3.7.3)
 - [ ] **T-112 — Uji penerimaan MVP** (§8.1)
   Jalankan ketujuh kriteria penerimaan terhadap target Docker, di Windows dan Linux.
