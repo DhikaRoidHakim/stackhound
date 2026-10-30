@@ -116,7 +116,7 @@ class LaravelPlugin(BasePlugin):
             try:
                 await check(ctx, result)
             except TargetRequestError as exc:
-                result.notes.append(f"{check.__name__.lstrip('_')}: request gagal ({exc}).")
+                result.errors.append(f"{check.__name__.lstrip('_')}: request gagal ({exc}).")
         return result
 
     async def _get(self, ctx: ScanContext, path: str, **kwargs: Any) -> HttpResponse:

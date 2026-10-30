@@ -244,22 +244,69 @@ class TestUsageErrors:
 class TestRealRunner:
     """CLI -> runner -> pre-flight + baseline, with the target mocked by respx."""
 
-    def test_preflight_and_baseline_then_not_available(self) -> None:
+    @staticmethod
+    def mock_site(mock: respx.MockRouter) -> tuple[respx.Route, respx.Route]:
+        home = mock.get(f"{TARGET}/").respond(200, text="home")
+        probes = mock.get(url__regex=rf"{TARGET}/shound-[0-9a-f]+").respond(404)
+        return home, probes
+
+    def test_recon_runs_to_a_grade(self) -> None:
         with respx.mock(assert_all_called=False) as mock:
-            home = mock.get(f"{TARGET}/").respond(200, text="home")
-            probes = mock.get(url__regex=rf"{TARGET}/shound-[0-9a-f]+").respond(404)
+            home, probes = self.mock_site(mock)
             result = invoke("recon", TARGET, "--authorized")
-        assert result.exit_code == ExitCode.USAGE
+        assert result.exit_code == ExitCode.OK  # findings, but no --fail-on
         out = text(result)
         assert "Pre-flight" in out
         assert "Soft-404 tidak" in out
-        assert "belum tersedia" in out
-        assert "Temuan" in out
         assert "SH-01.CSP" in out
+        # CSP + XFO (MEDIUM 8 each), XCTO + RP + SH-04.HTTP (LOW 3 each): 100 - 25
+        assert "Security Grade: C skor 75/100" in out
+        assert "belum" not in out
         # Landing page: pre-flight GET, then the two SH-03 CORS probes.
         origins = [call.request.headers.get("origin") for call in home.calls]
         assert origins == [None, "https://shound-origin-check.invalid", "null"]
         assert probes.call_count == 2
+
+    @pytest.mark.parametrize(("fail_on", "code"), [("medium", 1), ("high", 0)])
+    def test_fail_on(self, fail_on: str, code: int) -> None:
+        with respx.mock(assert_all_called=False) as mock:
+            self.mock_site(mock)
+            result = invoke("recon", TARGET, "--authorized", "--fail-on", fail_on)
+        assert result.exit_code == code  # worst finding is SH-01.CSP (MEDIUM)
+
+    def test_failed_check_makes_scan_partial(self) -> None:
+        def landing(request: httpx.Request) -> httpx.Response:
+            if "origin" in request.headers:
+                raise httpx.ReadTimeout("timeout")
+            return httpx.Response(200, text="home")
+
+        with respx.mock(assert_all_called=False) as mock:
+            mock.get(f"{TARGET}/").mock(side_effect=landing)
+            mock.get(url__regex=rf"{TARGET}/shound-[0-9a-f]+").respond(404)
+            partial = invoke("recon", TARGET, "--authorized")
+            failing = invoke("recon", TARGET, "--authorized", "--fail-on", "medium")
+        assert partial.exit_code == ExitCode.PARTIAL
+        assert "Gagal diperiksa: CORS" in text(partial)
+        assert failing.exit_code == ExitCode.FINDINGS  # findings win over partial
+
+    def test_report_output_not_written_yet(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        with respx.mock(assert_all_called=False) as mock:
+            self.mock_site(mock)
+            result = invoke("recon", TARGET, "--authorized", "-o", "report.json")
+        assert result.exit_code == ExitCode.USAGE
+        assert "T-111" in text(result)
+        assert not (tmp_path / "report.json").exists()
+
+    def test_scan_still_incomplete(self) -> None:
+        with respx.mock(assert_all_called=False) as mock:
+            self.mock_site(mock)
+            result = invoke("scan", TARGET, "--authorized")
+        assert result.exit_code == ExitCode.USAGE
+        assert "Security Grade" in text(result)
+        assert "belum lengkap" in text(result)
 
     def test_unreachable_target_exits_3(self) -> None:
         with respx.mock(assert_all_called=False) as mock:
@@ -274,7 +321,7 @@ class TestRealRunner:
             result = invoke("deps", str(tmp_path))
             assert len(mock.calls) == 0
         assert result.exit_code == ExitCode.USAGE
-        assert "belum tersedia" in text(result)
+        assert "belum lengkap" in text(result)
 
 
 class TestConfigCommands:

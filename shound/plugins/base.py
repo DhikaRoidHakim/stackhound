@@ -42,7 +42,8 @@ class PluginResult:
     findings: list[Finding] = field(default_factory=list)
     versions: list[DetectedVersion] = field(default_factory=list)
     exposed_lockfiles: list[ExposedLockfile] = field(default_factory=list)
-    notes: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)  # informational
+    errors: list[str] = field(default_factory=list)  # checks that failed -> partial scan
 
 
 class BasePlugin(ABC):

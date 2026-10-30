@@ -269,11 +269,11 @@ class TestLaravelPlugin:
         await run_plugin(session)
         assert {r.method for r in site.requests} <= {"GET", "OPTIONS"}
 
-    async def test_request_failure_becomes_note(self, session: TargetSession) -> None:
+    async def test_request_failure_becomes_error(self, session: TargetSession) -> None:
         with respx.mock(assert_all_called=False) as router:
             # Registered before the Site catch-all so it takes precedence.
             router.get(f"{BASE}.env").mock(side_effect=httpx.ReadTimeout("timeout"))
             Site(router)
             result = await run_plugin(session)
         assert result.findings == []
-        assert any(n.startswith("env_files") for n in result.notes)
+        assert any(e.startswith("env_files") for e in result.errors)

@@ -1,38 +1,42 @@
 """Executes a validated ``ScanRequest``.
 
-Target modes already run the pre-flight check (T-103) and capture the soft-404
-baseline (T-104). The audit modules arrive in later tasks; until then the run
-ends by reporting that the mode is not available yet (exit code 2, so a CI job
-that already calls ``shound`` cannot pass by accident).
+``recon`` and ``audit`` are complete: pre-flight, baseline, fingerprint, their
+checks, the Security Grade and the exit code (``--fail-on``, partial scan).
+Modes that still need the CVE engine (``cve``, ``deps``, ``scan``) end with
+exit code 2 so a CI job that already calls them cannot pass by accident.
 """
 
 import asyncio
+from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
 from rich.console import Console
 from rich.markup import escape
+from rich.panel import Panel
 from rich.table import Table
 
 from shound.config import Settings
 from shound.core.baseline import Baseline
 from shound.core.fingerprint import FingerprintResult, Observation, fingerprint
+from shound.core.grading import GradeResult, compute_grade, exit_code, severity_counts
 from shound.core.headers_tls import audit_cookies, audit_cors, audit_security_headers, audit_tls
 from shound.core.models import Evidence, Finding, Severity, severity_rank
 from shound.core.preflight import PreflightResult, run_preflight
 from shound.core.redaction import redact
-from shound.core.session import TargetSession
+from shound.core.session import TargetRequestError, TargetSession
 from shound.errors import PreflightError
 from shound.exitcodes import ExitCode
 from shound.options import Mode, ScanRequest
 from shound.plugins import select_plugins
 from shound.plugins.base import ScanContext
 
+COMPLETE_MODES: frozenset[Mode] = frozenset({"recon", "audit"})
 PENDING_TASKS: dict[Mode, str] = {
-    "recon": "T-110, T-111",
-    "audit": "T-110, T-111",
+    "recon": "-",
+    "audit": "-",
     "cve": "T-209",
     "deps": "T-207",
-    "scan": "T-309",
+    "scan": "korelasi CVE, T-209/T-309",
 }
 
 
@@ -200,9 +204,35 @@ def findings_table(findings: list[Finding]) -> Table:
     return table
 
 
+_GRADE_STYLE = {"A+": "green", "A": "green", "B": "green", "C": "yellow", "D": "red", "F": "red"}
+
+
+def grade_panel(result: GradeResult, findings: list[Finding]) -> Panel:
+    style = _GRADE_STYLE[result.grade]
+    counts = severity_counts(findings)
+    summary = "  ".join(f"{severity.value} {count}" for severity, count in counts.items())
+    lines = [
+        f"[bold {style}]Security Grade: {result.grade}[/bold {style}]   skor {result.score}/100",
+        summary,
+    ]
+    lines += [f"[{style}]{escape(cap)}[/{style}]" for cap in result.caps]
+    if result.penalties:
+        top = ", ".join(f"{p.label} -{p.points:g}" for p in result.penalties[:5])
+        lines.append(f"[dim]Pengurang terbesar: {escape(top)}[/dim]")
+    return Panel("\n".join(lines), title="Ringkasan", title_align="left", expand=False)
+
+
+@dataclass
+class TargetRun:
+    findings: list[Finding] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)  # failed checks -> partial scan
+
+
 async def probe_target(
     request: ScanRequest, target: str, settings: Settings, console: Console
-) -> None:
+) -> TargetRun:
+    run = TargetRun()
+    notes: list[str] = []
     async with TargetSession(
         settings, insecure=request.insecure, method_probe=request.method_probe
     ) as session:
@@ -210,6 +240,7 @@ async def probe_target(
         console.print(preflight_table(result))
         baseline = await Baseline.capture(session, result.final_url)
         console.print(baseline_table(baseline))
+        run.errors += [f"Baseline: {error}" for error in baseline.errors]
         detected = fingerprint(
             [
                 Observation(result.response),
@@ -220,15 +251,18 @@ async def probe_target(
         if detected.versions:
             console.print(versions_table(detected))
         responses = [result.response, *(sample.response for sample in baseline.samples)]
-        findings: list[Finding] = []
-        notes: list[str] = []
+
         if request.mode in {"recon", "scan"}:
-            findings += audit_security_headers(result.response)
-            findings += audit_cookies(responses)
-            findings += await audit_cors(session, result.final_url)
+            run.findings += audit_security_headers(result.response)
+            run.findings += audit_cookies(responses)
+            try:
+                run.findings += await audit_cors(session, result.final_url)
+            except TargetRequestError as exc:
+                run.errors.append(f"CORS: {exc}")
             tls_audit = await audit_tls(session, result)
-            findings += tls_audit.findings
+            run.findings += tls_audit.findings
             notes += [f"TLS: {note}" for note in tls_audit.notes]
+
         if request.mode in {"audit", "scan"}:
             selection = select_plugins(detected, request.framework)
             notes += selection.notes
@@ -242,7 +276,8 @@ async def probe_target(
             )
             for plugin_class in selection.plugins:
                 plugin_result = await plugin_class().run(context)
-                findings += plugin_result.findings
+                run.findings += plugin_result.findings
+                run.errors += [f"{plugin_class.name}: {e}" for e in plugin_result.errors]
                 notes += [f"{plugin_class.name}: {note}" for note in plugin_result.notes]
                 if plugin_result.versions:
                     console.print(
@@ -252,25 +287,49 @@ async def probe_target(
                     notes.append(
                         f"{lockfile.url} terekspos; audit CVE isinya menyusul (BACKLOG T-208)."
                     )
+
         soft_404 = baseline.soft_404_finding()
         if soft_404 is not None:
-            findings.append(soft_404)
-        console.print(findings_table(findings))
+            run.findings.append(soft_404)
+        console.print(findings_table(run.findings))
         for note in notes:
             console.print(f"[dim]Catatan: {escape(note)}[/dim]")
+        for error in run.errors:
+            console.print(f"[yellow]Gagal diperiksa:[/yellow] {escape(error)}")
         console.print(f"[dim]Request terkirim ke target: {session.request_count}[/dim]")
+    return run
 
 
 def execute(request: ScanRequest, settings: Settings, console: Console) -> ExitCode:
     console.print(describe(request, settings))
-    if request.target is not None:
-        try:
-            asyncio.run(probe_target(request, request.target, settings, console))
-        except PreflightError as exc:
-            console.print(f"[red]Pre-flight gagal:[/red] {escape(str(exc))}")
-            return ExitCode.PREFLIGHT
+    if request.target is None:  # deps, cve --component: CVE engine not built yet
+        return _not_available(request, console)
+    try:
+        run = asyncio.run(probe_target(request, request.target, settings, console))
+    except PreflightError as exc:
+        console.print(f"[red]Pre-flight gagal:[/red] {escape(str(exc))}")
+        return ExitCode.PREFLIGHT
+
+    grade = compute_grade(run.findings)
+    console.print(grade_panel(grade, run.findings))
+    if request.mode not in COMPLETE_MODES:
+        return _not_available(request, console)
+    if request.outputs:
+        console.print(
+            "[yellow]Ekspor laporan ke file belum tersedia (BACKLOG T-111); "
+            "tidak ada file yang ditulis.[/yellow]"
+        )
+        return ExitCode.USAGE
+    return exit_code(
+        run.findings,
+        fail_on=request.fail_on.severity if request.fail_on else None,
+        partial=bool(run.errors),
+    )
+
+
+def _not_available(request: ScanRequest, console: Console) -> ExitCode:
     console.print(
-        f"[yellow]Pemeriksaan mode {request.mode!r} belum tersedia.[/yellow] "
+        f"[yellow]Pemeriksaan mode {request.mode!r} belum lengkap.[/yellow] "
         f"Sedang dikembangkan (BACKLOG {PENDING_TASKS[request.mode]})."
     )
     return ExitCode.USAGE

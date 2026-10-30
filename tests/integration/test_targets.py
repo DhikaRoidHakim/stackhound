@@ -14,7 +14,9 @@ from collections.abc import AsyncIterator
 from urllib.parse import urlsplit
 
 import pytest
+from typer.testing import CliRunner
 
+from shound import cli
 from shound.config import Settings
 from shound.core.baseline import Baseline, Signature
 from shound.core.fingerprint import LIKELY, Observation, fingerprint
@@ -418,3 +420,21 @@ async def test_laravel_plugin_forced_on_non_laravel_has_no_findings(
     require(base)
     result = await run_laravel_plugin(session, base)
     assert result.findings == []
+
+
+# ---------------------------------------------------------------- grade & exit code
+@pytest.mark.parametrize(
+    ("args", "code", "grade"),
+    [
+        (["audit", LARAVEL12], 0, "F"),
+        (["audit", LARAVEL12, "--fail-on", "critical"], 1, "F"),
+        (["recon", CLEAN], 0, "A+"),
+        (["recon", CLEAN, "--fail-on", "low"], 1, "A+"),
+        (["recon", CLEAN, "--fail-on", "medium"], 0, "A+"),
+    ],
+)
+def test_cli_grade_and_exit_code(args: list[str], code: int, grade: str) -> None:
+    require(args[1])
+    result = CliRunner().invoke(cli.app, [*args, "--authorized"])
+    assert result.exit_code == code, result.output
+    assert f"Security Grade: {grade} " in " ".join(result.output.split())
